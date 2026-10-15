@@ -59,7 +59,13 @@
 - [x] Headless batch tools: `pnpm sim:balance` → docs/BALANCE.md (ladder + matchup table)
 
 ## Phase 6 — Polish and performance
-- [ ] Quality tiers, loading, accessibility, bug bash, full E2E
+- [x] Start-up frame-time probe picks the tier on AUTO; dynamic render scale targets the frame budget (src/render/AdaptiveQuality.ts, e2e/quality.spec.ts)
+- [x] Accessibility options wired: reduced shake/flash, colour-blind HUD palette, attack-level sound cues, hold-to-block assist
+- [x] FEEL_CHECKLIST ticked with evidence; stage-boot regression spec over all six stages (e2e/stages.spec.ts)
+- [x] Stage exposure applied before bloom (no costume halos on dark-graded stages)
+- [ ] Character balance pass from docs/BALANCE.md matchups
+- [ ] Known visual issues: faint floor shadows under IBL; bright white costumes still near clipping in direct sun; no spring-bone hair/cloth; no facial blendshapes; per-character stance idles
+- [ ] Bug bash + full `pnpm test:all` on the final build
 
 ## Phase 7 — Stretch
 - [ ] Rollback netcode

@@ -58,6 +58,9 @@ export class Hud {
     this.results.classList.remove('show');
   }
 
+  /** Colour-blind palette: blue/orange bars with distinct textures instead of two yellows. */
+  setColourBlind(on: boolean): void { this.el.classList.toggle('hud-cb', on); }
+
   setNames(a: string, b: string): void {
     (this.names[0] as HTMLDivElement).textContent = a;
     (this.names[1] as HTMLDivElement).textContent = b;

@@ -31,6 +31,8 @@ export interface SessionOptions {
   audio?: GameAudio;
   maxParticles?: number;
   arena?: ArenaDef;
+  /** Accessibility: play a pitched cue when an attack starts (high / mid / low). */
+  soundCues?: boolean;
 }
 
 /**
@@ -44,6 +46,7 @@ export class Session {
   readonly camera: CameraRig;
   readonly hitboxes: HitboxViewer;
   readonly hud: Hud;
+  private readonly soundCues: boolean;
   readonly frameData: FrameDataOverlay;
   readonly inputDisplay: InputDisplay;
   readonly vfx: VfxManager;
@@ -65,6 +68,7 @@ export class Session {
   hpRegen = true;
 
   constructor(o: SessionOptions) {
+    this.soundCues = o.soundCues === true;
     this.sim = new MatchSim(o.chars, { ...(o.arena && !o.match.arena ? { arena: o.arena } : {}), ...o.match });
     this.scene = o.scene;
     this.input = o.input;
@@ -116,6 +120,12 @@ export class Session {
       this.vfx.onSimEvent(e, actor.fx, actor.fz);
       if (e.type === EvType.RoundEnd) this.audio?.announceRoundResult(this.sim.round.lastRoundResult, this.sim.round.winner);
       switch (e.type) {
+        case EvType.MoveStart: {
+          if (!this.soundCues) break;
+          const lvl = this.sim.chars[e.a as 0 | 1]?.move(e.move)?.hits[0]?.level;
+          if (lvl) this.audio?.engine.play('ui_move', { pitch: lvl === 'high' ? 1.7 : lvl === 'low' ? 0.55 : 1, gain: 0.45 });
+          break;
+        }
         case EvType.Hit:
         case EvType.Counter: {
           const v = this.views[e.b as 0 | 1];

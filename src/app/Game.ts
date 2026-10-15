@@ -5,6 +5,7 @@ import { ProfilerOverlay } from '@/debug/ProfilerOverlay';
 import { bindDebugHotkeys } from '@/debug/DebugHotkeys';
 import { debugFlags } from '@/debug/DebugFlags';
 import { QUALITY_PRESETS, type QualitySettings, type QualityTier } from '@/render/quality';
+import { AdaptiveQuality } from '@/render/AdaptiveQuality';
 import * as THREE from 'three/webgpu';
 import type { WebGPURenderer } from 'three/webgpu';
 import { InputSystem } from '@/input/InputSystem';
@@ -42,6 +43,9 @@ export class Game {
   renderer!: WebGPURenderer;
   backend: Backend = 'webgl2';
   quality: QualitySettings = QUALITY_PRESETS.medium;
+  /** Start-up tier probe + dynamic render scale (disabled when the tier is forced by a query param). */
+  private adaptive: AdaptiveQuality | null = null;
+  private dynamicScale = 1;
   scene!: GreyBoxScene;
   post: PostPipeline | null = null;
   driver: LoopDriver | null = null;
@@ -73,6 +77,7 @@ export class Game {
     const s = this.settings.get();
     const forced = this.opts.quality && this.opts.quality in QUALITY_PRESETS ? (this.opts.quality as QualityTier) : null;
     this.quality = QUALITY_PRESETS[forced ?? this.resolveTier(s.quality)];
+    if (!forced) this.adaptive = new AdaptiveQuality({ backend: this.backend, probe: s.quality === 'auto' });
     this.applySettings(s);
     this.settings.subscribe((ns) => this.applySettings(ns));
     this.onResize();
@@ -83,9 +88,23 @@ export class Game {
     this.unbind = bindDebugHotkeys((key, v) => { if (key === 'profiler') this.profiler.setVisible(v); });
   }
 
+  private probedTier: QualityTier | null = null;
+
   private resolveTier(q: Settings['quality']): QualityTier {
     if (q !== 'auto') return q;
-    return this.backend === 'webgpu' ? 'high' : 'medium';
+    return this.probedTier ?? (this.backend === 'webgpu' ? 'high' : 'medium');
+  }
+
+  /** Frame-time feedback: one-shot tier probe, then dynamic resolution. */
+  private adapt(frameMs: number): void {
+    if (!this.adaptive) return;
+    const d = this.adaptive.sample(frameMs, this.quality.dynamicResolution);
+    if (!d) return;
+    if (d.tier && d.tier !== this.quality.tier && this.settings.get().quality === 'auto') {
+      this.probedTier = d.tier;
+      this.applySettings(this.settings.get());
+    }
+    if (d.scale !== undefined) { this.dynamicScale = d.scale; this.applyQuality(this.quality); }
   }
 
   private applySettings(s: Settings): void {
@@ -121,10 +140,12 @@ export class Game {
     const session = new Session({
       chars, match: config, scene: this.scene, uiRoot: this.opts.uiRoot, debugRoot: this.opts.debugRoot, input: this.input, audio: this.audio,
       maxParticles: this.quality.particlesMax,
+      soundCues: this.settings.get().accessibility.soundCues,
       ...(this.scene.stage ? { arena: this.scene.stage.arena } : {}),
     });
     session.setPost(this.post);
     const acc = this.settings.get().accessibility;
+    session.hud.setColourBlind(acc.colourBlindHud);
     session.camera.reduceMotion = acc.reducedShake;
     session.vfx.setReducedFlash(acc.reducedFlash);
     this.simFrameProbe = () => session.sim.frame;
@@ -134,7 +155,7 @@ export class Game {
   applyQuality(q: QualitySettings): void {
     this.quality = q;
     if (!this.renderer) return;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * q.renderScale);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * q.renderScale * this.dynamicScale);
     this.renderer.shadowMap.enabled = q.shadows;
     this.post?.setQuality(q);
   }
@@ -167,6 +188,7 @@ export class Game {
   private render(alpha: number, dt: number): void {
     this.scene.update(dt);
     if (this.driver) this.driver.render(alpha, dt); else this.renderScene();
+    if (!this.loop.isPaused()) this.adapt(dt);
     const info = this.renderer.info;
     const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
     this.profiler.update({

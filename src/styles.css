@@ -29,6 +29,10 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000;
 .hud-fill, .hud-trail { position: absolute; top: 0; bottom: 0; left: 0; transition: width 60ms linear; }
 .hud-fill { background: linear-gradient(180deg, #fff3a0, var(--hp-p1) 55%, #d9a300); }
 .hud-trail { background: var(--hp-trail); }
+.hud-cb .hud-p1 .hud-fill { background: repeating-linear-gradient(135deg, #3a7bff 0 8px, #6ea3ff 8px 12px); }
+.hud-cb .hud-p2 .hud-fill { background: repeating-linear-gradient(45deg, #ff8c1a 0 6px, #ffc277 6px 9px); }
+.hud-cb .hud-trail { background: #ffffff; }
+.hud-cb .pip.won { background: #fff; }
 .hud-p2 .hud-fill, .hud-p2 .hud-trail { left: auto; right: 0; }
 .hud-pips { margin-top: 5px; display: flex; gap: 6px; }
 .hud-p2 .hud-pips { justify-content: flex-end; }
