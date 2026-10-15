@@ -7,8 +7,15 @@ const executablePath = !process.env.CI && existsSync(PREINSTALLED) ? PREINSTALLE
 
 const PORT = Number(process.env.PW_PORT ?? 4173);
 
+// Screenshot baselines are tied to the exact Chromium build, fonts and software GPU, so local
+// sandboxes (preinstalled Chromium) and CI (Playwright's bundled Chromium on GitHub runners)
+// each keep their own set (D-026). CI writes a baseline the first time it is missing.
+const SHOT_ENV = process.env.CI ? 'ci' : 'local';
+
 export default defineConfig({
   testDir: './e2e',
+  snapshotPathTemplate: `{testDir}/__screenshots__/${SHOT_ENV}/{testFilePath}/{arg}{ext}`,
+  ...(process.env.CI ? { updateSnapshots: 'missing' as const } : {}),
   timeout: 90_000,
   expect: { timeout: 15_000, toHaveScreenshot: { maxDiffPixelRatio: 0.03 } },
   fullyParallel: false,

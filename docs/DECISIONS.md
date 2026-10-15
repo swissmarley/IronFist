@@ -147,3 +147,10 @@
   off on both sides (a per-player assist would change the rules on one peer only), have no
   pause and no KO slow motion (loop ticks must map 1:1 to sim frames), and end only once the
   deciding frame is confirmed.
+- **D-026 Screenshot baselines are per environment.** Pixel baselines depend on the exact
+  Chromium build, fonts and software GPU. Sandboxes use the preinstalled Chromium, CI uses
+  Playwright's bundled build on GitHub runners, so `playwright.config.ts` stores them under
+  `e2e/__screenshots__/{local|ci}/`. CI runs with `updateSnapshots: 'missing'`: the first run
+  writes its baselines and uploads them as the `ci-screenshot-baselines` artifact, which is
+  committed so every later CI run compares against real CI pixels. The workflow takes the pnpm
+  version from `packageManager` only (pinning it twice made pnpm/action-setup abort).

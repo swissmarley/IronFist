@@ -8,7 +8,7 @@ Original 3D browser fighting game (see docs/SPEC.md). Current phase: **0–7 del
 - `pnpm typecheck` / `pnpm lint` / `pnpm test` — TS strict, ESLint, Vitest unit tests
 - `pnpm build` — typecheck + production build to `dist/`
 - `pnpm test:e2e` — Playwright (uses preinstalled Chromium at /opt/pw-browsers/chromium when present)
-- `pnpm exec playwright test --update-snapshots` — refresh visual baselines
+- `pnpm exec playwright test --update-snapshots` — refresh the local visual baselines (`e2e/__screenshots__/local`); CI keeps its own set in `e2e/__screenshots__/ci`, written by CI on first run and committed from the `ci-screenshot-baselines` artifact (D-026)
 - `pnpm test:all` — everything, in CI order
 - `pnpm sim:balance [perLevel] [perPair]` — headless AI ladder + matchup report → docs/BALANCE.md (1000/level ≈ 30 min)
 
