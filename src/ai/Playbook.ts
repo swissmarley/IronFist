@@ -48,9 +48,11 @@ export class Playbook {
       if (!conds.includes('standing')) return;
       const input = notationToFrames(m.input, facingRight);
       if (!input) return;
+      // frames of motion input before the final button lands (f,f = 2, cd = 5)
+      const delay = input.length - 2;
       const motion = m.motion?.reduce((a, r) => a + r.forward * (r.frames[1] - r.frames[0] + 1), 0) ?? 0;
       if (m.throw) {
-        const pm: PlayMove = { idx, move: m, reach: m.throw.range + Math.max(0, motion), startup: m.throw.grabFrame, onBlock: 0, level: 'throw', damage: m.throw.damage, input, launcher: false, homing: false, low: false, safe: true, fast: m.throw.grabFrame <= 12, powerCrush: false, isThrow: true, breakButton: m.throw.breakButton };
+        const pm: PlayMove = { idx, move: m, reach: m.throw.range + Math.max(0, motion), startup: m.throw.grabFrame + delay, onBlock: 0, level: 'throw', damage: m.throw.damage, input, launcher: false, homing: false, low: false, safe: true, fast: m.throw.grabFrame + delay <= 12, powerCrush: false, isThrow: true, breakButton: m.throw.breakButton };
         this.all.push(pm); this.throws.push(pm);
         return;
       }
@@ -60,8 +62,8 @@ export class Playbook {
       const reach = Math.max(...caps.map((c) => Math.max(c.az, c.bz) + c.r)) + Math.max(0, motion);
       const launcher = h.reaction.includes('launch') || h.reaction === 'spinLaunch';
       const pm: PlayMove = {
-        idx, move: m, reach, startup: h.frames[0], onBlock: h.onBlock, level: h.level, damage: m.hits.reduce((a, x) => a + x.damage, 0), input,
-        launcher, homing: m.properties?.includes('homing') ?? false, low: h.level === 'low', safe: h.onBlock >= -9, fast: h.frames[0] <= 12,
+        idx, move: m, reach, startup: h.frames[0] + delay, onBlock: h.onBlock, level: h.level, damage: m.hits.reduce((a, x) => a + x.damage, 0), input,
+        launcher, homing: m.properties?.includes('homing') ?? false, low: h.level === 'low', safe: h.onBlock >= -9, fast: h.frames[0] + delay <= 12,
         powerCrush: m.armour !== undefined, isThrow: false, breakButton: 0,
       };
       this.all.push(pm);
@@ -84,6 +86,12 @@ export class Playbook {
     if (ok.length === 0) return null;
     const launcher = ok.find((p) => p.launcher);
     return launcher ?? ok.sort((a, b) => b.damage - a.damage)[0] ?? null;
+  }
+
+  /** Best whiff punisher that reaches `dist`: a launcher when one reaches, else the biggest hit. */
+  whiffPunisher(dist: number): PlayMove | null {
+    const ok = this.inReach(this.whiffPunishers, dist);
+    return ok.find((p) => p.launcher) ?? ok.sort((a, b) => b.damage - a.damage)[0] ?? null;
   }
 
   inReach(list: PlayMove[], dist: number, slack = 250): PlayMove[] {

@@ -130,7 +130,7 @@ export class LayeredAI {
     }
     // whiff punish: opponent recovering in reach, not threatening
     if (opAttacking && opMove && op.moveFrame > (sim.chars[op.idx as 0 | 1].lastActive[op.moveIdx] ?? 0) && opMove.total - op.moveFrame >= 12 && dist < 1700 && this.rng.chance(this.diff.punishPct)) {
-      const wp = this.book.inReach(this.book.whiffPunishers, dist + 200)[0];
+      const wp = this.book.whiffPunisher(dist + 200);
       if (wp) return this.run(this.execute(wp.input), `whiff:${wp.move.id}`);
     }
 
@@ -151,7 +151,9 @@ export class LayeredAI {
     // --- spacing layer ---------------------------------------------------------
     const ideal = 900 + this.rangePref * 900;
     const aggression = this.diff.aggression + (this.rubber ? this.rubberAdjust(me.hp, op.hp) : 0);
-    if (dist > ideal + 600) return this.rng.chance(35) ? this.run([F(6), F(5), F(6), F(6), F(6), F(6), F(6)], 'dash-in') : F(6);
+    // approach only when nothing long reaches from here: f,f moves and running throws are the approach tools
+    const longReach = this.book.inReach(this.book.launchers.concat(this.book.mids, this.book.throws), dist, 100).length > 0;
+    if (dist > ideal + 600 && !longReach) return this.rng.chance(35) ? this.run([F(6), F(5), F(6), F(6), F(6), F(6), F(6)], 'dash-in') : F(6);
     if (dist < ideal - 500 && this.rng.chance(100 - aggression)) return this.run([F(4), F(5), F(4), F(5), F(4)], 'backdash');
 
     // --- mix-up generator ----------------------------------------------------
@@ -164,7 +166,7 @@ export class LayeredAI {
     }
     const choice = this.pickCategory(dist);
     const pool = choice === 'throw' ? this.book.throws : choice === 'low' ? this.book.lows : choice === 'high' ? this.book.pokes.filter((p) => p.level === 'high') : (dist > 1500 ? this.book.launchers.concat(this.book.mids) : this.book.pokes.concat(this.book.mids, this.book.launchers));
-    let candidates = this.book.inReach(pool, dist);
+    let candidates = this.book.inReach(pool, dist, choice === 'throw' ? 100 : 250);
     // skilled players prefer safe pokes in neutral; launchers only when the range makes them a whiff-punish
     if (this.rng.chance(this.diff.safePct)) { const safe = candidates.filter((p) => p.safe || p.isThrow || (p.launcher && dist > 1300)); if (safe.length > 0) candidates = safe; }
     const pick = candidates[this.rng.nextInt(Math.max(1, candidates.length))] ?? this.book.inReach(this.book.pokes, dist)[0] ?? this.book.inReach(this.book.homing, dist + 200)[0];
@@ -180,7 +182,8 @@ export class LayeredAI {
 
   private pickCategory(dist: number): 'high' | 'mid' | 'low' | 'throw' {
     const t = { ...this.tendency };
-    if (dist > 1100) t.throw = 0;
+    // throws only when one actually reaches (running throws extend this well past jab range)
+    if (this.book.inReach(this.book.throws, dist, 100).length === 0) t.throw = 0;
     const total = t.high + t.mid + t.low + t.throw;
     let r = this.rng.nextInt(Math.max(1, total));
     for (const k of ['high', 'mid', 'low', 'throw'] as const) { r -= t[k]; if (r < 0) return k; }

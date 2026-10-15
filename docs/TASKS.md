@@ -63,7 +63,7 @@
 - [x] Accessibility options wired: reduced shake/flash, colour-blind HUD palette, attack-level sound cues, hold-to-block assist
 - [x] FEEL_CHECKLIST ticked with evidence; stage-boot regression spec over all six stages (e2e/stages.spec.ts)
 - [x] Stage exposure applied before bloom (no costume halos on dark-graded stages)
-- [ ] Character balance pass from docs/BALANCE.md matchups
+- [x] Character balance pass 1 (AI spacing/whiff-punish/throw-reach fixes, faster motion execution, mid-air freeze sim fix, per-character data trims) — all fighters 44–60% at Hard mirror; ladder 86/71/66/64%, 0 stalls
 - [ ] Known visual issues: faint floor shadows under IBL; bright white costumes still near clipping in direct sun; no spring-bone hair/cloth; no facial blendshapes; per-character stance idles
 - [ ] Bug bash + full `pnpm test:all` on the final build
 

@@ -63,3 +63,29 @@
 - **D-020 Stage modules export their `arena`** next to the default `StageFactory` so the
   registry (src/render/stages/index.ts) can list names and wall/ring-out type for menus
   without building a scene.
+- **D-021 Balance pass 1 is "fix the AI's blind spots first, then nudge the data".** The
+  Hard-mirror table (docs/BALANCE.md) had kaede/boris at 26–29% and luiz/meiling at 83%.
+  Diagnosis (scratch batches over `runMatch` with per-move hit/whiff/damage tallies)
+  showed the gap was mostly how `LayeredAI` used the roster, not the roster itself:
+  rushdown archetypes never attacked beyond `ideal + 600` so their f,f moves were never
+  used at the range they were built for; whiff punishes picked the longest-reaching move
+  instead of a launcher; running throws were never thrown because throws were gated at a
+  fixed 1100 mm; and motion inputs (crouch dash, qcf) took 3 input frames per token, which
+  made every one of kaede's four cd moves a whiff machine that diluted her pool. Those are
+  fixed in src/ai (approach only when nothing reaches, `Playbook.whiffPunisher`, throw
+  gating by real throw reach, 2-frame-per-token scripts, input delay counted as startup).
+  A sim bug surfaced on the way: a jump attack whose `vy` hit exactly 0 at the apex froze
+  in the air for the rest of the round (meiling/luiz jump stats), which was the source of
+  the ladder stalls. Only then were the numbers touched, Tekken-5 style: ±10–20% damage,
+  2–3 frames of recovery, reach through root-motion distance, onBlock safety and small
+  movement-stat trims; no startup/active frames changed, so no rebake. Every change is
+  listed in docs/BALANCE.md ("Balance pass 1"). tools/balance.ts now counts both sides of
+  every pairing for the per-character rate (twice the sample). Target: every fighter
+  within 35–65% at Hard mirror; result 44–60%.
+- **D-022 Quality adapts to measured frame time, never to device heuristics.** With the
+  quality setting on AUTO, `AdaptiveQuality` averages the first 120 frames after a 30-frame
+  warm-up and picks the tier (`tierFromBenchmark`); afterwards a dynamic render scale steps
+  between 0.6 and 1.0 against the frame budget. A `?quality=` query param disables both so
+  tests stay deterministic. Related rendering rules: stage exposure is applied before bloom
+  (so dark-graded stages do not halo bright costumes) and cloth albedo is capped at 0.72
+  linear in `RigMaterials` (white gis keep their folds instead of clipping).

@@ -210,9 +210,13 @@ export function notationToFrames(input: string, facingRight: boolean): number[] 
       else if (DIRS[p.toLowerCase()] !== undefined) dir = DIRS[p.toLowerCase()] as number;
       else return null;
     }
-    // hold the direction for 2 frames, release for 1 so repeated directions register as edges
-    frames.push(frameFromNumpad(dir, buttons, facingRight), frameFromNumpad(dir, 0, facingRight));
-    if (i < segs.length - 1) frames.push(0);
+    // one frame per token with a release frame between tokens (so repeated directions register as
+    // edges); the final token holds its direction one extra frame. Motion inputs (cd, qcf) thus cost
+    // ~2 frames per token instead of 3, which is what keeps them usable as neutral tools.
+    const last = i === segs.length - 1;
+    frames.push(frameFromNumpad(dir, buttons, facingRight));
+    if (last) frames.push(frameFromNumpad(dir, 0, facingRight));
+    else if (dir !== 5) frames.push(0);
   }
   return frames;
 }

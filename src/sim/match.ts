@@ -210,7 +210,7 @@ export class MatchSim {
   private airPhysics(f: FighterState, rt: CharacterRuntime): void {
     const g = rt.def.stats.gravity;
     if (f.state === FState.WallSplat) return;
-    if (f.state === FState.Air || (f.state === FState.Attack && f.y > 0 && f.vy !== 0)) {
+    if (f.state === FState.Air || (f.state === FState.Attack && f.y > 0)) {
       f.x += f.vx; f.z += f.vz; f.y += f.vy;
       f.vy -= Math.trunc((g * rt.def.stats.weight) / 100);
       if (f.y <= 0) {

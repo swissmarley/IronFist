@@ -9,7 +9,8 @@ const G = getCharacter('greybox');
 describe('BasicAI', () => {
   it('converts notation into frame scripts', () => {
     expect(notationToFrames('d/f+2', true)).toEqual([frameFromNumpad(3, IN_B2, true), frameFromNumpad(3, 0, true)]);
-    expect(notationToFrames('f,f+2', true)?.length).toBe(5);
+    expect(notationToFrames('f,f+2', true)?.length).toBe(4);
+    expect(notationToFrames('f,n,d,d/f+2', true)?.length).toBe(7);
     expect(notationToFrames('WS 2', true)).toBeNull();
   });
   it('plays a full match against an idle opponent and wins', () => {

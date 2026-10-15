@@ -32,11 +32,13 @@ for (const a of ids) {
     if (!cell) return '?';
     const o = overall.get(a) ?? { w: 0, n: 0 };
     o.w += cell.p1WinRate * cell.n; o.n += cell.n; overall.set(a, o);
+    const ob = overall.get(b) ?? { w: 0, n: 0 };
+    ob.w += (1 - cell.p1WinRate) * cell.n; ob.n += cell.n; overall.set(b, ob);
     return `${(cell.p1WinRate * 100).toFixed(0)}%`;
   });
   lines.push(`| ${a} | ${row.join(' | ')} |`);
 }
-lines.push('', '## Overall win rate by character (Hard mirror level)', '', '| Character | Win rate |', '|---|---|');
+lines.push('', '## Overall win rate by character (Hard mirror level, both sides of every pairing)', '', '| Character | Win rate |', '|---|---|');
 for (const a of ids) { const o = overall.get(a); lines.push(`| ${a} | ${o && o.n ? ((o.w / o.n) * 100).toFixed(1) + '%' : '—'} |`); }
 lines.push('', `Run time: ${((Date.now() - t0) / 1000).toFixed(0)} s.`);
 writeFileSync('docs/BALANCE.md', lines.join('\n') + '\n');
