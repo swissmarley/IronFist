@@ -154,3 +154,64 @@
   writes its baselines and uploads them as the `ci-screenshot-baselines` artifact, which is
   committed so every later CI run compares against real CI pixels. The workflow takes the pnpm
   version from `packageManager` only (pinning it twice made pnpm/action-setup abort).
+- **D-027 Faces are a separate morph-target mesh on the head bone, driven by a pure render-side
+  controller.** Every head gets stylised, original features built in code (src/render/rig/FaceRig.ts):
+  sclera, iris, upper lids, brows, mouth and teeth as low-poly ellipsoids conformed to the head
+  and jaw ellipsoids of RigGeometry, each half-embedded in the skull so features meet the skin at
+  a real 3D intersection (no coplanar decals, no polygon offset, no z-fighting). Colours derive
+  from the palette (brows = hair, iris = darkened hair, mouth = darkened skin, sclera/teeth =
+  skin lifted toward ivory) and the lids reuse the head's own material, so hit flash, KO dim and
+  guard tint apply to the whole face. Seven relative morph targets (position + normal deltas):
+  blink, browAngry, browPain, mouthOpen (shout), mouthGrit (teeth), eyesClosed (KO) and smile.
+  The lids are ellipsoid shells whose lower vertices are clamped to a lid line, so moving the
+  line per target opens/closes/slants them linearly. *Why a separate mesh:* three r186 node
+  materials do support morphs on SkinnedMesh, but morph data on the merged body would cover
+  every body vertex (~7 targets × all vertices), compile morph code into every body material and
+  need new material slots in the body; a ~2k-triangle face Mesh parented to the head Bone is
+  cheaper and leaves RigGeometry untouched. *Driving:* src/render/rig/FaceController.ts is pure
+  (no `three`, no allocation per frame; unit-tested in tests/unit/face.test.ts): FighterState →
+  `FaceSignals` → targets → `faceWeights()` exponential easing on wall-clock dt (in 55 ms, out
+  130 ms, eyes 220 ms). Grit + angry brows on an attack's active frames (lighter in
+  startup/recovery), shout on throws, `launcher` moves and moves that launch on normal hit
+  (counter-hit-only launchers grit), pain scaled by `lastReaction` in hit-stun and by the stun
+  length in block-stun, eyes closed once `ko` is set (pain on the KO impact itself), a 0.5 s grit
+  then a smile on Win. Blinks follow a fixed gap table (incl. a double blink) offset by a
+  per-slot phase (`slot * 1730 + 610` ms) — no `Math.random`. A fresh hit-stop snaps the face to
+  its target so the impact expression reads during the freeze; the rest of the hit-stop holds the
+  face and the blink clock. Channels that deform the same geometry (lids, brows, mouth) are
+  normalised to sum ≤ 1 so additive deltas never overshoot. `QualitySettings.faceExpressions` is
+  false on potato (features still render, static); the sim is untouched.
+- **D-028 Online polish: rematch on one connection, RTT-based input delay, host-authoritative
+  desync recovery.** *Rematch:* the results screen offers REMATCH / CHANGE FIGHTER / LEAVE over
+  the existing `NetPeer` (phases `lobby → match → post`). REMATCH needs both players; the host
+  then sends a new `start` with the same fighters, stage, rules and input delay and a new seed.
+  CHANGE FIGHTER from either side sends both back to the online character pick (the ordered
+  control channel guarantees the `change` arrives before that player's next `pick`; a `change`
+  that arrives while the other peer is still confirming its last frames waits for its results).
+  Every start carries a match epoch (1..255) that is byte 1 of every realtime datagram, so
+  packets still in flight from the previous match are dropped (without it the rematch test
+  fails: stale acks/inputs corrupt the new session). A finished match's session keeps being
+  pumped by `NetPeer.tick()` until the next match begins, so a peer that is still confirming
+  never loses its acks. The match ends once the frame that *entered* MatchOver is confirmed
+  (`RollbackSession.matchDecided`; the previous "every frame confirmed" test only held by
+  chance under latency because the sim keeps stepping MatchOver frames). *Input delay:* in the
+  lobby both peers ping every 6 ticks on the realtime channel (epoch 0); after ≥ 1 s and ≥ 5
+  samples (or 3 s regardless) the host picks `clamp(ceil(rtt_ticks / 2) + 1, 1, 6)` from the
+  median RTT and sends it in the start message (`inputDelay`, `delayAuto`); the guest always
+  adopts it. With time sync both peers run the same frame at the same moment, so a remote
+  input for F + d arrives rtt/2 frames after it was sampled: d ≥ ceil(rtt/2) + 1 means steady
+  play needs no rollback; above 6 frames (100 ms) delay is felt more than rollbacks, so the
+  rest is left to the 8-frame window. LAN stays at the old default of 2. `?delay=N` (host,
+  clamped 0..8) fixes the value and skips the wait. *Desync recovery:* on a confirmed-checkpoint
+  mismatch the host (authority) snapshots its last confirmed frame K (`confirmedFrame + 1`, always
+  inside the snapshot ring) and sends it with all its inputs the guest may lack (from
+  `min(K, remoteAck + 1)`) as JSON on the reliable channel, chunked at 1024 ints (< 16 KB per
+  message). The guest restores K (or jumps forward when it is behind K), re-simulates to its
+  present without re-presenting frames, and both move to a new hash generation (byte 2 of hash
+  datagrams) with checkpoints before K no longer compared, so hashes computed before the
+  transfer can never trigger a second resync; a guest that detects first asks the host with a
+  `desync` message carrying its generation (ignored once handled). The host's state wins even
+  when the host was the corrupted side: the goal is that both continue identically, not that
+  the "right" state survives. The NetHud shows RESYNCED for ~2 s. Replays of a resynced match
+  record the confirmed inputs but cannot reproduce the state jump. Protocol version 2.
+  Spectators and a signalling server remain open.

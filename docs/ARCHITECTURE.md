@@ -96,3 +96,9 @@ the snapshot ring. `NetPeer` adds the lobby handshake over the reliable channel;
 `protocol.ts` is the binary datagram codec; `WebRtcTransport` / `LocalLoopbackTransport`
 implement `NetTransport`. App side: `src/app/OnlineFlow.ts` (lobby), `src/ui/screens/OnlineScreen.ts`,
 `src/app/NetMatchRunner.ts` (presents first-time frames only via `Session.presentStep`).
+`src/net/lobby.ts` holds the control-channel messages (start, rematch/change, desync state
+transfer), `src/net/inputDelay.ts` the RTT → input-delay rule, `src/net/resync.ts` the chunked
+state transfer. `NetPeer` runs `lobby → match → post` phases so several matches share one
+connection (each with its own packet epoch) and is ticked every loop step (lobby pings,
+post-match pumping); the host's `RollbackSession` (authority) answers a desync with its
+confirmed snapshot (D-028).

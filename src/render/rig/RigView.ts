@@ -1,9 +1,10 @@
 import * as THREE from 'three/webgpu';
-import { HUMANOID, scaleSkeleton, type BoneDef } from '@/anim/skeleton';
+import { BONE_INDEX, HUMANOID, scaleSkeleton, type BoneDef } from '@/anim/skeleton';
 import type { Pose } from '@/anim/pose';
 import { buildBones, buildRigGeometry, DEFAULT_STYLE, type RigStyle } from './RigGeometry';
 import { makeRigMaterials, PALETTES, type Palette } from './RigMaterials';
 import { SpringRig } from './SpringRig';
+import { FaceRig } from './FaceRig';
 import type { SpringSetup } from './springPresets';
 
 export interface RigOptions {
@@ -16,6 +17,12 @@ export interface RigOptions {
   springMaxSegments?: number;
   /** Deterministic per-fighter phase for the idle breeze (radians). */
   springPhase?: number;
+  /** Facial features (eyes, brows, mouth); default true. */
+  face?: boolean;
+  /** Drive expressions/blinks from fighter state (FighterView); false on the potato tier. */
+  faceExpressions?: boolean;
+  /** Deterministic per-fighter blink phase (ms). */
+  facePhaseMs?: number;
 }
 
 /**
@@ -29,6 +36,10 @@ export class RigView {
   readonly defs: BoneDef[];
   readonly materials: THREE.Material[];
   readonly springs: SpringRig;
+  /** Face mesh parented to the head bone (null when disabled). */
+  readonly face: FaceRig | null;
+  /** Every material the hit flash / KO dim / guard tint touches (body + face). */
+  private readonly fxMaterials: THREE.MeshStandardMaterial[];
   private readonly springPhase: number;
   private springTime = 0;
   private readonly springUpdate = { timeScale: 1, windX: 0, windZ: 0 };
@@ -43,7 +54,8 @@ export class RigView {
     this.springs = new SpringRig(this.defs, opts.springs ?? { chains: [], dressing: {} }, this.defs.length, opts.springMaxSegments);
     this.springPhase = opts.springPhase ?? 0;
     const { geometry, groups } = buildRigGeometry(this.defs, style, this.springs.parts);
-    this.materials = makeRigMaterials(groups, opts.palette ?? (PALETTES.karate as Palette));
+    const palette = opts.palette ?? (PALETTES.karate as Palette);
+    this.materials = makeRigMaterials(groups, palette);
     this.bones = buildBones(this.defs);
     this.springs.attach(this.bones);
     const skeleton = new THREE.Skeleton([...this.bones, ...this.springs.bones]);
@@ -55,8 +67,12 @@ export class RigView {
     this.mesh.receiveShadow = true;
     this.mesh.frustumCulled = false;
     this.group.add(this.mesh);
-    this.baseColors = this.materials.map((m) => (m as THREE.MeshStandardMaterial).color.clone());
-    this.baseEmissive = this.materials.map((m) => (m as THREE.MeshStandardMaterial).emissive.clone());
+    const headMat = this.materials[groups.indexOf(style.parts.head ?? 'skin')];
+    this.face = opts.face !== false && headMat ? new FaceRig(palette, headMat) : null;
+    if (this.face) (this.bones[BONE_INDEX.head] as THREE.Bone).add(this.face.mesh);
+    this.fxMaterials = [...this.materials as THREE.MeshStandardMaterial[], ...(this.face?.ownMaterials ?? [])];
+    this.baseColors = this.fxMaterials.map((m) => m.color.clone());
+    this.baseEmissive = this.fxMaterials.map((m) => m.emissive.clone());
   }
 
   applyPose(pose: Pose): void {
@@ -96,14 +112,19 @@ export class RigView {
   /** Per-frame material effects: hit flash, KO dim, guard tint. */
   updateEffects(dtMs: number, dim: boolean, guard: boolean): void {
     if (this.flash > 0) this.flash = Math.max(0, this.flash - dtMs / 110);
-    for (let i = 0; i < this.materials.length; i++) {
-      const m = this.materials[i] as THREE.MeshStandardMaterial;
+    for (let i = 0; i < this.fxMaterials.length; i++) {
+      const m = this.fxMaterials[i] as THREE.MeshStandardMaterial;
       m.color.copy(this.baseColors[i] as THREE.Color);
       if (guard) m.color.lerp(this.white, 0.12);
       if (dim) m.color.multiplyScalar(0.6);
       m.emissive.copy(this.baseEmissive[i] as THREE.Color);
       if (this.flash > 0) m.emissive.lerp(this.white, Math.min(1, this.flash) * 0.8);
     }
+  }
+
+  /** Morph influences for the face (see FaceController.FACE); no-op without a face. */
+  setFaceWeights(w: ArrayLike<number>): void {
+    this.face?.setWeights(w);
   }
 
   /** World position of a bone joint (for VFX attachment). */
@@ -114,5 +135,6 @@ export class RigView {
   dispose(): void {
     this.mesh.geometry.dispose();
     for (const m of this.materials) m.dispose();
+    this.face?.dispose();
   }
 }

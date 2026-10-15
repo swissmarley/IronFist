@@ -147,6 +147,12 @@ Targets: 60 fps locked at Medium on mid-range laptops; 120 fps at Ultra on high-
 
 Two players over WebRTC with rollback netcode (D-025). ONLINE in the main menu: the host
 sends a code, the guest pastes it and sends a reply back (no server). Host is P1, guest
-P2; each picks their own fighter, the host picks the stage. 2 frames of input delay, up to
-8 frames of rollback, then the game waits for the opponent. No pause or KO slow motion
-online; a desync (hash mismatch on a confirmed frame) is shown in the net HUD.
+P2; each picks their own fighter, the host picks the stage. While both are in the lobby the
+game measures the round trip for about a second and the host picks the input delay,
+`clamp(ceil(rtt_frames / 2) + 1, 1, 6)` (2 on a LAN; `?delay=N` fixes it); both peers use the
+host's value, shown in the lobby and the net HUD. Up to 8 frames of rollback, then the game
+waits for the opponent. No pause or KO slow motion online. A desync (hash mismatch on a
+confirmed frame) is repaired automatically: the host sends its confirmed state, the guest
+restores it and catches up, and the net HUD briefly shows RESYNCED (D-028). After a match the
+results screen offers REMATCH (both must agree; same fighters and stage, new seed), CHANGE
+FIGHTER (both go back to the character pick) and LEAVE, all without reconnecting.

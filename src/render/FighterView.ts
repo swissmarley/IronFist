@@ -5,6 +5,7 @@ import type { CharacterRuntime } from '@/sim/character';
 import { FX_ONE } from '@/core/fixed';
 import { FighterAnimator } from '@/anim/FighterAnimator';
 import { RigView, type RigOptions } from './rig/RigView';
+import { emptyFaceSignals, FaceState, faceWeights, moveFaceInfo, readFaceSignals, type MoveFaceInfo } from './rig/FaceController';
 
 const MM = 0.001;
 
@@ -19,12 +20,19 @@ export class FighterView {
   private yaw = 0;
   private initialised = false;
   private lastHitstop = 0;
+  /** Expression state; null when the tier disables expressions or the rig has no face. */
+  private readonly face: FaceState | null;
+  private readonly faceInfo: MoveFaceInfo | null;
+  private readonly faceSignals = emptyFaceSignals();
 
   constructor(group: THREE.Group, rt: CharacterRuntime, rigOpts: RigOptions = {}) {
     this.group = group;
     this.rig = new RigView(rigOpts);
     this.animator = new FighterAnimator(rt);
     group.add(this.rig.group);
+    const expressive = this.rig.face !== null && rigOpts.faceExpressions !== false;
+    this.face = expressive ? new FaceState(rigOpts.facePhaseMs ?? 0) : null;
+    this.faceInfo = expressive ? moveFaceInfo(rt.moves, rt.startup, rt.lastActive) : null;
   }
 
   triggerFlash(strength: number): void {
@@ -49,6 +57,7 @@ export class FighterView {
     const pose = this.animator.update(f, o, alpha, dtMs);
     this.rig.applyPose(pose);
     this.updateSprings(f, o, x, z, dtMs);
+    if (this.face && this.faceInfo) this.rig.setFaceWeights(faceWeights(readFaceSignals(f, this.faceInfo, this.faceSignals), this.face, dtMs));
     this.rig.updateEffects(dtMs, f.ko === 1, f.state === FState.Blockstun);
   }
 
@@ -78,6 +87,7 @@ export class FighterView {
   /** Snap hair/cloth chains to rest (round resets, rematches). */
   resetSprings(): void {
     this.rig.springs.reset();
+    this.face?.reset();
   }
 
   /** World position of the head joint (for camera focus / VFX). */

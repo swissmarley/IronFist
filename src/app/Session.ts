@@ -36,6 +36,8 @@ export interface SessionOptions {
   soundCues?: boolean;
   /** Spring-bone segment cap per chain from the quality tier. */
   springSegments?: number;
+  /** Facial expressions / blinks (off on the potato tier). */
+  faceExpressions?: boolean;
 }
 
 /**
@@ -78,8 +80,8 @@ export class Session {
     this.input = o.input;
     this.audio = o.audio ?? null;
     this.views = [
-      new FighterView(o.scene.fighters[0] as THREE.Group, this.sim.chars[0], rigOptionsFor(o.chars[0], 0, o.springSegments)),
-      new FighterView(o.scene.fighters[1] as THREE.Group, this.sim.chars[1], rigOptionsFor(o.chars[1], 1, o.springSegments)),
+      new FighterView(o.scene.fighters[0] as THREE.Group, this.sim.chars[0], rigOptionsFor(o.chars[0], 0, o.springSegments, o.faceExpressions)),
+      new FighterView(o.scene.fighters[1] as THREE.Group, this.sim.chars[1], rigOptionsFor(o.chars[1], 1, o.springSegments, o.faceExpressions)),
     ];
     this.camera = new CameraRig(o.scene.camera);
     this.hitboxes = new HitboxViewer();

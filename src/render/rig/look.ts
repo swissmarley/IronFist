@@ -11,11 +11,16 @@ export type { SpringChainSpec, SpringLook } from './springPresets';
  * Build rig options from a character's `look` (falls back to the player-slot
  * palette). A look may carry an optional `springs` list (see `SpringLook`);
  * otherwise chains are derived from the hair style and costume.
- * `springMaxSegments` caps chain segments for the quality tier.
+ * `springMaxSegments` caps chain segments for the quality tier; `faceExpressions`
+ * false keeps the face static (potato tier). Blink phase is derived from the slot.
  */
-export function rigOptionsFor(def: CharacterDef, slot: number, springMaxSegments?: number): RigOptions {
+export function rigOptionsFor(def: CharacterDef, slot: number, springMaxSegments?: number, faceExpressions?: boolean): RigOptions {
   const look = def.look;
-  const springOpts = { springPhase: slot * 2.1 + 0.4, ...(springMaxSegments !== undefined ? { springMaxSegments } : {}) };
+  const springOpts = {
+    springPhase: slot * 2.1 + 0.4, facePhaseMs: slot * 1730 + 610,
+    ...(springMaxSegments !== undefined ? { springMaxSegments } : {}),
+    ...(faceExpressions !== undefined ? { faceExpressions } : {}),
+  };
   if (!look) {
     const hair = slot === 0 ? 'bun' : 'spiky';
     return { palette: slot === 0 ? PALETTES.karate : PALETTES.p2, style: { ...DEFAULT_STYLE, hair }, springs: defaultSprings({ hair }), ...springOpts };
