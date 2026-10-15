@@ -45,7 +45,7 @@
 
 ## Phase 4 — Content scale-up
 - [x] 8 original fighters (60–100 moves each, stances, chain throws, ten-hit strings), roster validator, baked capsules, per-character looks
-- [ ] 6 stages (Dojo done; Harbour, Neon, Desert, Forest, Colosseum in progress)
+- [x] 6 stages: Dojo Rooftop, Harbour Deck (ring-out), Neon Street, Desert Ruins (ring-out), Bamboo Forest, Arena Colosseum — auto-discovered, each with dynamic background and its own grading/music theme
 - [x] Title, main menu, character select with 3D turntable, stage select, versus splash, loading tips, results, pause, move list
 - [x] Settings (video/audio/controls remap/accessibility/rules) persisted in IndexedDB; records
 - [x] Modes: arcade (8-fight ladder, sub-boss/boss intros, endings), versus, practice (dummy modes, record/playback, move demo), survival, time attack, replay theatre
@@ -53,7 +53,10 @@
 - [ ] Per-character stance idle poses; intro/win poses per character (polish)
 
 ## Phase 5 — AI and balance
-- [ ] Layered AI, difficulties, headless balance reports
+- [x] Per-character playbook from baked move reach (pokes, mids, lows, launchers, throws, punishers, homing, power crush, ground hits)
+- [x] Layered AI: throw breaks, wake-up, delayed-reaction defence, level reads, sidesteps, block/whiff punish, juggles, oki, spacing, adaptive mix-ups, execution accuracy, optional rubber-band
+- [x] Five difficulties tuned so each beats the one below (tests/unit/balance.test.ts)
+- [x] Headless batch tools: `pnpm sim:balance` → docs/BALANCE.md (ladder + matchup table)
 
 ## Phase 6 — Polish and performance
 - [ ] Quality tiers, loading, accessibility, bug bash, full E2E

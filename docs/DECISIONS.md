@@ -51,3 +51,15 @@
   are baked per pose class (head/torso/legs; guard arms deliberately excluded) except
   the airborne class, which stays one generous capsule so juggles are reliable. Highs
   always whiff on crouchers by rule, independent of geometry.
+- **D-019 Difficulty is behaviour, never stats.** `LayeredAI` (src/ai/LayeredAI.ts) stacks
+  throw-break → wake-up → defence (delayed reaction, level reads, sidestep, power
+  crush) → frame-data punish/whiff-punish → juggle/oki → spacing → mix-up layers over a
+  per-character `Playbook` built from the baked reach of each move. Levels differ only in
+  the `AiDifficulty` table (reaction frames, block/break/punish/step/safe percentages,
+  aggression, think cadence, execution accuracy). The idle "hold" input guards with a
+  probability tied to `blockPct`; an unconditional back-hold had made every level block
+  equally and flattened the ladder. Boss vs Beginner wins ~86% of single rounds after
+  the change; each level beats the one below (tests/unit/balance.test.ts, docs/BALANCE.md).
+- **D-020 Stage modules export their `arena`** next to the default `StageFactory` so the
+  registry (src/render/stages/index.ts) can list names and wall/ring-out type for menus
+  without building a scene.

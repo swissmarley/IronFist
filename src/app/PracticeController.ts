@@ -1,6 +1,6 @@
 import type { Game } from './Game';
 import type { MatchRunner } from './MatchRunner';
-import { BasicAI } from '@/ai/BasicAI';
+import { LayeredAI } from '@/ai/LayeredAI';
 import { debugFlags } from '@/debug/DebugFlags';
 import { frameFromNumpad, IN_START } from '@/input/InputFrame';
 import { FState } from '@/sim/fighterState';
@@ -13,7 +13,7 @@ import { FX_ONE } from '@/core/fixed';
  */
 export class PracticeController {
   private options: PracticeOptions | null = null;
-  private cpu: BasicAI | null = null;
+  private cpu: LayeredAI | null = null;
   private recording: number[] | null = null;
   private armed = false;
   private playbackIdx = 0;
@@ -32,7 +32,7 @@ export class PracticeController {
     debugFlags.hitboxes = o.hitboxes;
     const sim = this.runner.session.sim;
     sim.config.training = true;
-    this.cpu = o.dummy === 'cpu' ? new BasicAI(sim, 1, this.game.settings.get().difficulty, 42) : null;
+    this.cpu = o.dummy === 'cpu' ? new LayeredAI(sim, 1, { level: this.game.settings.get().difficulty, seed: 42 }) : null;
     if (o.dummy !== 'record' && o.dummy !== 'playback') this.recording = o.dummy === 'stand' ? this.recording : this.recording;
     this.runner.session.hpRegen = o.hpRegen;
     this.game.input.overrides[1] = null;

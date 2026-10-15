@@ -1,6 +1,8 @@
 import * as THREE from 'three/webgpu';
 import { SkyMesh } from 'three/addons/objects/SkyMesh.js';
-import { DEFAULT_ARENA } from '@/sim/config';
+import { DEFAULT_ARENA, type ArenaDef } from '@/sim/config';
+
+export const arena: ArenaDef = { ...DEFAULT_ARENA, id: 'dojo', name: 'Dojo Rooftop' };
 import { plankTextures, stoneTextures, texRng, tileTextures, windowTextures } from './textures';
 import { DEFAULT_GRADING, type Stage, type StageContext } from './Stage';
 
@@ -200,7 +202,7 @@ export async function createDojoRooftop(ctx: StageContext): Promise<Stage> {
 
   let time = 0;
   return {
-    id: 'dojo', name: 'Dojo Rooftop', theme: 'dojo', arena: { ...DEFAULT_ARENA, id: 'dojo', name: 'Dojo Rooftop' },
+    id: 'dojo', name: 'Dojo Rooftop', theme: 'dojo', arena,
     root, grading: { ...DEFAULT_GRADING, exposure: 0.72, contrast: 1.12, tint: [1.04, 0.98, 0.92], saturation: 1.1, bloomStrength: 0.12, bloomThreshold: 1.6, vignette: 0.42 },
     environment, background: null, fog: new THREE.Fog(0x7a4a4a, 24, 95),
     update(dtMs: number): void {

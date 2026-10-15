@@ -1,6 +1,6 @@
 import type { Game } from './Game';
 import { Session } from './Session';
-import { BasicAI } from '@/ai/BasicAI';
+import { LayeredAI } from '@/ai/LayeredAI';
 import { getCharacter } from '@/data/characters';
 import { ReplayRecorder, type Replay } from '@/sim/replay';
 import { RoundPhase } from '@/sim/rounds';
@@ -15,7 +15,7 @@ import type { InputFrame } from '@/input/InputFrame';
 export class MatchRunner {
   readonly session: Session;
   readonly setup: MatchSetup;
-  private readonly ai: [BasicAI | null, BasicAI | null] = [null, null];
+  private readonly ai: [LayeredAI | null, LayeredAI | null] = [null, null];
   private recorder: ReplayRecorder;
   private maxCombo: [number, number] = [0, 0];
   private damage: [number, number] = [0, 0];
@@ -32,8 +32,8 @@ export class MatchRunner {
     const p1 = getCharacter(setup.p1), p2 = getCharacter(setup.p2);
     this.session = game.createSession([p1, p2], setup.config);
     const sim = this.session.sim;
-    if (setup.cpu[0] !== null) this.ai[0] = new BasicAI(sim, 0, setup.cpu[0], (setup.config.seed ?? 1) * 7 + 1);
-    if (setup.cpu[1] !== null) this.ai[1] = new BasicAI(sim, 1, setup.cpu[1], (setup.config.seed ?? 1) * 7 + 2);
+    if (setup.cpu[0] !== null) this.ai[0] = new LayeredAI(sim, 0, { level: setup.cpu[0], seed: (setup.config.seed ?? 1) * 7 + 1 });
+    if (setup.cpu[1] !== null) this.ai[1] = new LayeredAI(sim, 1, { level: setup.cpu[1], seed: (setup.config.seed ?? 1) * 7 + 2 });
     this.recorder = new ReplayRecorder(sim);
     this.startFrame = sim.frame;
     const acc = game.settings.get().accessibility;

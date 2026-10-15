@@ -5,7 +5,7 @@ import type { AfterMatch, MatchSetup, Mode } from './modes/types';
 import { ArcadeMode, buildLadder } from './modes/Arcade';
 import { PracticeMode, SurvivalMode, TimeAttackMode, VersusMode } from './modes/Simple';
 import { CHARACTERS, getCharacter } from '@/data/characters';
-import { STAGE_IDS } from '@/render/stages';
+import { STAGE_IDS, stageInfo } from '@/render/stages';
 import { TitleScreen } from '@/ui/screens/TitleScreen';
 import { MainMenu, type MainMenuChoice } from '@/ui/screens/MainMenu';
 import { CharacterSelect } from '@/ui/screens/CharacterSelect';
@@ -65,7 +65,7 @@ export class App {
     this.title = new TitleScreen(uiRoot);
     this.main = new MainMenu(uiRoot);
     this.select = new CharacterSelect(uiRoot, this.roster);
-    this.stageSel = new StageSelect(uiRoot, STAGE_IDS.filter((id) => id !== 'greybox').map((id) => ({ id, name: id, kind: 'walls' })));
+    this.stageSel = new StageSelect(uiRoot, STAGE_IDS.filter((id) => id !== 'greybox').map(stageInfo));
     this.splash = new VersusSplash(uiRoot);
     this.loading = new LoadingScreen(uiRoot);
     this.cutscene = new CutsceneOverlay(uiRoot);

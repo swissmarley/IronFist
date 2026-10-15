@@ -10,6 +10,7 @@ Original 3D browser fighting game (see docs/SPEC.md). Current phase: **4 (conten
 - `pnpm test:e2e` — Playwright (uses preinstalled Chromium at /opt/pw-browsers/chromium when present)
 - `pnpm exec playwright test --update-snapshots` — refresh visual baselines
 - `pnpm test:all` — everything, in CI order
+- `pnpm sim:balance [perLevel] [perPair]` — headless AI ladder + matchup report → docs/BALANCE.md (1000/level ≈ 30 min)
 
 ## Conventions
 - TypeScript strict; files ≤ 500 lines (lint-enforced); no `any`; no shipped TODOs.

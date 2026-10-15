@@ -19,16 +19,18 @@ export interface AiDifficulty {
   punishPct: number;
   /** Percent chance to sidestep a linear attack. */
   stepPct: number;
+  /** Percent chance, per neutral attack, to restrict the choice to moves that are safe on block. */
+  safePct: number;
   /** Frames between decisions in neutral. */
   think: number;
 }
 
 export const DIFFICULTIES: AiDifficulty[] = [
-  { reaction: 24, blockPct: 25, breakPct: 5, aggression: 35, punishPct: 10, stepPct: 3, think: 18 },  // Beginner
-  { reaction: 18, blockPct: 45, breakPct: 15, aggression: 45, punishPct: 30, stepPct: 8, think: 14 },  // Easy
-  { reaction: 13, blockPct: 65, breakPct: 30, aggression: 55, punishPct: 55, stepPct: 15, think: 10 }, // Medium
-  { reaction: 9, blockPct: 80, breakPct: 50, aggression: 65, punishPct: 75, stepPct: 22, think: 7 },   // Hard
-  { reaction: 6, blockPct: 92, breakPct: 70, aggression: 75, punishPct: 90, stepPct: 30, think: 5 },   // Boss
+  { reaction: 24, blockPct: 25, breakPct: 5, aggression: 35, punishPct: 10, stepPct: 3, safePct: 0, think: 18 },   // Beginner
+  { reaction: 18, blockPct: 45, breakPct: 15, aggression: 45, punishPct: 30, stepPct: 8, safePct: 0, think: 14 },  // Easy
+  { reaction: 13, blockPct: 65, breakPct: 30, aggression: 55, punishPct: 55, stepPct: 15, safePct: 15, think: 10 }, // Medium
+  { reaction: 9, blockPct: 80, breakPct: 50, aggression: 65, punishPct: 75, stepPct: 22, safePct: 30, think: 7 },   // Hard
+  { reaction: 4, blockPct: 95, breakPct: 80, aggression: 70, punishPct: 95, stepPct: 22, safePct: 20, think: 4 },   // Boss
 ];
 
 interface Plan { frames: InputFrame[]; label: string }

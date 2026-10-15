@@ -61,6 +61,12 @@ by priority. Directions are stored relative to facing (f/b) at sample time.
 - `three/webgpu` `WebGPURenderer` with automatic WebGL2 fallback; backend is
   detected and recorded in the quality settings.
 - Grey-box scene (Phases 0–2) then the full stage/character pipeline.
+- Stages: `src/render/stages/<id>.stage.ts` default-exports a `StageFactory` and
+  exports its `arena`; the registry (`stages/index.ts`) discovers them with
+  `import.meta.glob`. Helpers shared by stages live in `stages/common.ts`
+  (Instancer, SpriteBatch, birds, Part/mergeGeos); procedural textures in
+  `stages/textures.ts` and `stages/texturesNature.ts`. Each stage owns its
+  lights, IBL, fog, grading and a per-frame `update()` for dynamic backgrounds.
 - Post-processing uses the TSL `PostProcessing` pipeline (bloom, tone mapping,
   AA, SSAO, DOF/motion blur per tier).
 
@@ -69,3 +75,12 @@ by priority. Directions are stored relative to facing (f/b) at sample time.
 - `vitest` unit tests over `core`, `sim`, `data`, `ai`.
 - Replay determinism: run a recorded input log twice and compare state hashes.
 - Playwright: boot smoke, menu paths, screenshots for stages/characters.
+
+## AI
+
+`src/ai/LayeredAI.ts` is a pure function of sim state + seeded RNG → `InputFrame`, so
+CPU matches replay exactly. A `Playbook` (src/ai/Playbook.ts) classifies the character's
+moves from the baked capsules (reach, level, safety, launch). Decision layers run in
+priority order each frame: throw break, wake-up, defence, punish, juggle/oki, spacing,
+mix-up. `DIFFICULTIES` (src/ai/BasicAI.ts) is the only thing that changes between
+levels. `src/ai/batch.ts` runs headless matches for tests and `tools/balance.ts`.
