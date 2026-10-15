@@ -12,7 +12,7 @@
  */
 export const SIM_HZ = 60;
 export const STEP_MS = 1000 / SIM_HZ;
-const MAX_STEPS_PER_FRAME = 6;
+const MAX_STEPS_PER_FRAME = 10;
 const MAX_FRAME_MS = 250;
 
 export interface LoopCallbacks {

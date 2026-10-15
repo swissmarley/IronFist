@@ -17,7 +17,7 @@ async function boot(): Promise<void> {
   window.addEventListener('error', (e) => errors.push(String(e.message)));
   window.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
 
-  const game = new Game({ canvas, uiRoot, debugRoot, forceWebGL: params.get('gl') === 'webgl', mode: params.get('mode') ?? 'training', ...(params.get('quality') ? { quality: params.get('quality') as string } : {}), ...(params.get('hp') ? { hp: parseInt(params.get('hp') as string, 10) } : {}), ...(params.get('ringout') ? { ringout: true } : {}) });
+  const game = new Game({ canvas, uiRoot, debugRoot, forceWebGL: params.get('gl') === 'webgl', mode: params.get('mode') ?? 'training', ...(params.get('quality') ? { quality: params.get('quality') as string } : {}), ...(params.get('hp') ? { hp: parseInt(params.get('hp') as string, 10) } : {}), ...(params.get('ringout') ? { ringout: true } : {}), ...(params.get('stage') ? { stage: params.get('stage') as string } : {}), ...(params.get('nopost') ? { noPost: true } : {}) });
   window.__ironfist = { game, ready: false, errors };
   try {
     await game.init();

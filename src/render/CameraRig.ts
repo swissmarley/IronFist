@@ -41,9 +41,9 @@ export class CameraRig {
     // camera normal N = (-Lz, Lx): P1 ends up on screen-left
     const nx = -lz, nz = lx;
     const dist = 5.8 + Math.max(0, len - 1.6) * 0.95 - this.punch * 0.5;
-    const height = 1.45 + Math.max(ay, by) * 0.35 + Math.max(0, len - 2.5) * 0.12;
+    const height = 1.25 + Math.max(ay, by) * 0.35 + Math.max(0, len - 2.5) * 0.12;
     const desired = new THREE.Vector3(mx + nx * dist, height, mz + nz * dist);
-    const desiredTarget = new THREE.Vector3(mx, 1.0 + Math.max(ay, by) * 0.4, mz);
+    const desiredTarget = new THREE.Vector3(mx, 1.12 + Math.max(ay, by) * 0.4, mz);
     const k = slowmo ? 0.08 : 1 - Math.exp(-dtMs / 110);
     this.pos.lerp(desired, k);
     this.target.lerp(desiredTarget, k * 1.2);

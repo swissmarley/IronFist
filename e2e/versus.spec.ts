@@ -3,7 +3,7 @@ import { bootGame, getRound, hold, IN, script, waitFrames } from './helpers';
 
 // RoundPhase: Intro 0, Fight 1, KO 2, End 3, MatchOver 4
 test('versus: rounds, KO slow-motion, results and rematch', async ({ page }) => {
-  const errors = await bootGame(page, '/?mode=versus&quality=potato&hp=12');
+  const errors = await bootGame(page, '/?mode=versus&quality=potato&stage=greybox&hp=12');
   await expect(page.locator('.hud-banner')).toContainText('ROUND 1');
   await waitFrames(page, 105);
   expect((await getRound(page)).phase).toBe(1);
@@ -26,7 +26,9 @@ test('versus: rounds, KO slow-motion, results and rematch', async ({ page }) => 
   await expect(page.locator('.hud-results')).toContainText('WINS');
   await expect(page).toHaveScreenshot('versus-results.png', { maxDiffPixelRatio: 0.06 });
   // rematch with Start
-  await page.keyboard.press('Enter', { delay: 60 });
+  await page.keyboard.down('Enter');
+  await waitFrames(page, 2);
+  await page.keyboard.up('Enter');
   await waitFrames(page, 5);
   r = await getRound(page);
   expect(r.phase).toBe(0);
@@ -35,7 +37,7 @@ test('versus: rounds, KO slow-motion, results and rematch', async ({ page }) => 
 });
 
 test('ring-out ends a round on an open-edge stage', async ({ page }) => {
-  await bootGame(page, '/?mode=versus&quality=potato&ringout=1');
+  await bootGame(page, '/?mode=versus&quality=potato&stage=greybox&ringout=1');
   await waitFrames(page, 105);
   // walk P2 (holding right = backwards for P2) to the edge, then P1 dashes in and launches
   await script(page, 1, [...hold(IN.RIGHT, 170), ...hold(0, 200)]);

@@ -5,11 +5,14 @@ import { ProfilerOverlay } from '@/debug/ProfilerOverlay';
 import { bindDebugHotkeys } from '@/debug/DebugHotkeys';
 import { debugFlags } from '@/debug/DebugFlags';
 import { QUALITY_PRESETS, type QualitySettings } from '@/render/quality';
+import * as THREE from 'three/webgpu';
 import type { WebGPURenderer } from 'three/webgpu';
 import { InputSystem } from '@/input/InputSystem';
 import { Session } from './Session';
 import { GREYBOX } from '@/data/characters/greybox';
 import { GameAudio } from '@/audio';
+import { STAGES } from '@/render/stages';
+import { PostPipeline } from '@/render/PostPipeline';
 
 export interface GameOptions {
   canvas: HTMLCanvasElement;
@@ -24,6 +27,10 @@ export interface GameOptions {
   hp?: number;
   /** Open-edge arena for ring-outs. */
   ringout?: boolean;
+  /** Stage id (see src/render/stages). */
+  stage?: string;
+  /** Disable post-processing (debug / tests). */
+  noPost?: boolean;
 }
 
 /** Application root. Owns the renderer, loop, input and the active session. */
@@ -35,6 +42,7 @@ export class Game {
   backend: Backend = 'webgl2';
   quality: QualitySettings = QUALITY_PRESETS.medium;
   scene!: GreyBoxScene;
+  post: PostPipeline | null = null;
   session: Session | null = null;
   private profiler: ProfilerOverlay;
   private readonly opts: GameOptions;
@@ -55,8 +63,12 @@ export class Game {
     this.renderer = renderer;
     this.backend = backend;
     this.renderer.shadowMap.enabled = true;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 0.9;
     this.scene = new GreyBoxScene(this.aspect());
     const q = this.opts.quality && this.opts.quality in QUALITY_PRESETS ? QUALITY_PRESETS[this.opts.quality as keyof typeof QUALITY_PRESETS] : this.quality;
+    this.quality = q;
+    await this.loadStage(this.opts.stage ?? 'dojo');
     this.applyQuality(q);
     this.onResize();
     window.addEventListener('resize', () => this.onResize());
@@ -67,6 +79,17 @@ export class Game {
       if (key === 'profiler') this.profiler.setVisible(v);
     });
     this.startSession(this.opts.mode ?? 'training');
+  }
+
+  async loadStage(id: string): Promise<void> {
+    const factory = STAGES[id] ?? STAGES.greybox;
+    if (!factory) return;
+    const stage = await factory({ renderer: this.renderer, shadows: this.quality.shadows, shadowMapSize: this.quality.shadowMapSize });
+    this.scene.setStage(stage);
+    this.audio.setTheme(stage.theme as never);
+    this.post?.dispose();
+    this.post = this.opts.noPost ? null : new PostPipeline(this.renderer, this.scene.scene, this.scene.camera, this.quality, stage.grading);
+    if (this.session) this.session.setPost(this.post);
   }
 
   startSession(mode: string): void {
@@ -85,7 +108,9 @@ export class Game {
       input: this.input,
       audio: this.audio,
       maxParticles: this.quality.particlesMax,
+      ...(this.scene.stage ? { arena: this.scene.stage.arena } : {}),
     });
+    this.session.setPost(this.post);
   }
 
   applyQuality(q: QualitySettings): void {
@@ -93,6 +118,7 @@ export class Game {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * q.renderScale);
     this.renderer.shadowMap.enabled = q.shadows;
     this.session?.vfx.setQuality(q.particlesMax);
+    this.post?.setQuality(q);
   }
 
   private aspect(): number {
@@ -120,7 +146,9 @@ export class Game {
 
   private render(alpha: number, dt: number): void {
     const r = this.renderer;
+    this.scene.update(dt);
     if (this.session) this.session.render(alpha, dt, r);
+    else if (this.post) this.post.render();
     else r.render(this.scene.scene, this.scene.camera);
     const info = r.info;
     const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;

@@ -36,7 +36,7 @@ describe('FixedStepLoop', () => {
     const { loop, calls, advance } = makeLoop();
     loop.frame(0);
     advance(5000);
-    expect(calls.step).toBeLessThanOrEqual(6);
+    expect(calls.step).toBeLessThanOrEqual(10);
   });
   it('does not step while paused but still renders, and stepOnce advances', () => {
     const { loop, calls, advance } = makeLoop();

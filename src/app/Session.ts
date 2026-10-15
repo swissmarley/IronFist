@@ -3,7 +3,8 @@ import type { WebGPURenderer } from 'three/webgpu';
 import { PALETTES } from '@/render/rig/RigMaterials';
 import { DEFAULT_STYLE } from '@/render/rig/RigGeometry';
 import { MatchSim } from '@/sim/match';
-import type { MatchConfig } from '@/sim/config';
+import type { ArenaDef, MatchConfig } from '@/sim/config';
+import type { PostPipeline } from '@/render/PostPipeline';
 import type { CharacterDef } from '@/sim/types';
 import { InputSystem } from '@/input/InputSystem';
 import { GreyBoxScene } from '@/render/GreyBoxScene';
@@ -30,6 +31,7 @@ export interface SessionOptions {
   input: InputSystem;
   audio?: GameAudio;
   maxParticles?: number;
+  arena?: ArenaDef;
 }
 
 /**
@@ -46,6 +48,8 @@ export class Session {
   readonly frameData: FrameDataOverlay;
   readonly inputDisplay: InputDisplay;
   readonly vfx: VfxManager;
+  private post: PostPipeline | null = null;
+  private flash = 0;
   private readonly input: InputSystem;
   private readonly scene: GreyBoxScene;
   private readonly audio: GameAudio | null;
@@ -58,7 +62,7 @@ export class Session {
   private prevStart: [boolean, boolean] = [false, false];
 
   constructor(o: SessionOptions) {
-    this.sim = new MatchSim(o.chars, o.match);
+    this.sim = new MatchSim(o.chars, { ...(o.arena && !o.match.arena ? { arena: o.arena } : {}), ...o.match });
     this.scene = o.scene;
     this.input = o.input;
     this.audio = o.audio ?? null;
@@ -75,6 +79,10 @@ export class Session {
     this.frameData = new FrameDataOverlay(o.debugRoot);
     this.inputDisplay = new InputDisplay(o.debugRoot);
     this.consumeEvents(); // the constructor's RoundStart
+  }
+
+  setPost(post: PostPipeline | null): void {
+    this.post = post;
   }
 
   sampleInput(): void {
@@ -137,7 +145,7 @@ export class Session {
         }
         case EvType.Armour: this.camera.addShake(0.2); break;
         case EvType.KO: {
-          this.camera.addShake(0.6); this.camera.addPunch(0.8);
+          this.camera.addShake(0.6); this.camera.addPunch(0.8); this.flash = 0.7;
           const label = e.strength === 1 ? 'TIME OVER' : e.strength === 2 ? 'RING OUT' : this.sim.round.lastRoundResult === 'perfect' ? 'PERFECT' : this.sim.round.lastRoundResult === 'double' ? 'DOUBLE K.O.' : 'K.O.';
           this.hud.showBanner(label, 1800);
           break;
@@ -145,7 +153,7 @@ export class Session {
         case EvType.RoundStart: if (!this.sim.config.training) this.hud.showBanner(`ROUND ${e.strength}`, 1100, 'FIGHT'); break;
         case EvType.Throw: this.camera.addShake(0.2); break;
         case EvType.ThrowBreak: this.hud.showBanner('ESCAPE', 500); break;
-        case EvType.Wall: this.camera.addShake(0.5); this.views[e.a as 0 | 1]?.triggerFlash(2); break;
+        case EvType.Wall: this.camera.addShake(0.5); this.views[e.a as 0 | 1]?.triggerFlash(2); this.flash = Math.max(this.flash, 0.25); break;
         case EvType.Parry: this.hud.showBanner('PARRY', 500); break;
         case EvType.RingOut: this.camera.addShake(0.4); break;
         default: break;
@@ -172,7 +180,11 @@ export class Session {
       this.audio.setHealthState(a.hp / a.maxHp, b.hp / b.maxHp, this.sim.round.phase);
       this.audio.update(dtMs);
     }
-    renderer.render(this.scene.scene, this.scene.camera);
+    if (this.post) {
+      this.flash = Math.max(0, this.flash - dtMs / 260);
+      this.post.setFlash(this.flash * 0.6);
+      this.post.render();
+    } else renderer.render(this.scene.scene, this.scene.camera);
   }
 
   dispose(): void {

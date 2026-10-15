@@ -33,9 +33,15 @@
 - [x] Replay module (record / verify / serialise) + determinism tests
 
 ## Phase 3 — First fighter at final quality
-- [ ] Rigged fighter + animation set
-- [ ] PBR materials, stage 1 lighting and VFX
-- [ ] Hit-stop, camera work, audio
+- [x] Procedural skinned rig, pose-keyframe animation, IK-aimed attack templates, /tools/animation
+- [x] Pose-baked hit/hurt capsules (tools/bake-hitboxes.ts)
+- [x] Physical materials with procedural roughness, palettes per fighter
+- [x] Dojo Rooftop stage: procedural planks/stone/tiles/windows, analytic sky + PMREM IBL, lanterns, pagoda, parallax skyline, painted far backdrop
+- [x] Post pipeline: GTAO(+denoise), bloom, grading/vignette, ACES, SMAA/FXAA per tier; KO/wall screen flash
+- [x] Audio engine (mixer, procedural SFX, music stems, announcer, crowd) wired to sim events
+- [x] VFX (instanced particles, impact flashes, shockwaves) wired to sim events
+- [x] Hit-stop shudder, camera shake/punch, slow-motion KO
+- [ ] Known issues: floor shadows faint under IBL; white costume halos at high sun; no spring-bone hair/cloth yet; facial blendshapes not started
 
 ## Phase 4 — Content scale-up
 - [ ] 7 more fighters, 6 stages

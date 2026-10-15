@@ -6,9 +6,9 @@ export interface Palette {
 }
 
 export const PALETTES = {
-  karate: { skin: 0xd9a884, top: 0xf2efe6, pants: 0xe9e4d8, belt: 0x1a1a1a, gloves: 0xc23b2a, boots: 0xd9a884, hair: 0x1b1410 },
+  karate: { skin: 0xc8956f, top: 0xc9c3b4, pants: 0xbfb8a8, belt: 0x1a1a1a, gloves: 0xb8331f, boots: 0xc8956f, hair: 0x1b1410 },
   greybox: { skin: 0x9aa3ad, top: 0x6f7a86, pants: 0x4b545e, belt: 0x2a2f36, gloves: 0x3a4049, boots: 0x2e333a, hair: 0x3a3f46 },
-  p2: { skin: 0xc48f6c, top: 0x2a5aa8, pants: 0x1b2c4f, belt: 0xe0c060, gloves: 0x1f1f24, boots: 0x1f1f24, hair: 0x2b1a12 },
+  p2: { skin: 0xb98363, top: 0x24508f, pants: 0x18274a, belt: 0xd4b050, gloves: 0x1f1f24, boots: 0x1f1f24, hair: 0x2b1a12 },
 } satisfies Record<string, Palette>;
 
 let noiseTex: THREE.CanvasTexture | null = null;

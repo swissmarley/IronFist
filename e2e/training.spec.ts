@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { bootGame, getFighters, hold, IN, script, waitFrames } from './helpers';
 
-const URL = '/?mode=training&quality=potato';
+const URL = '/?mode=training&quality=potato&stage=greybox';
 
 test.describe('grey-box training room', () => {
   test('keyboard jab hits, holding back blocks, overlays render', async ({ page }) => {
@@ -12,7 +12,9 @@ test.describe('grey-box training room', () => {
     await waitFrames(page, 36);
     await page.keyboard.up('KeyD');
     await waitFrames(page, 5);
-    await page.keyboard.press('KeyU', { delay: 60 });
+    await page.keyboard.down('KeyU');
+    await waitFrames(page, 2);
+    await page.keyboard.up('KeyU');
     await waitFrames(page, 24);
     let f = await getFighters(page);
     expect(f[1]!.hp).toBeLessThan(170);
@@ -22,7 +24,9 @@ test.describe('grey-box training room', () => {
     await page.keyboard.down('ArrowRight');
     await waitFrames(page, 3);
     const hpBeforeBlock = (await getFighters(page))[1]!.hp;
-    await page.keyboard.press('KeyU', { delay: 60 });
+    await page.keyboard.down('KeyU');
+    await waitFrames(page, 2);
+    await page.keyboard.up('KeyU');
     await waitFrames(page, 24);
     f = await getFighters(page);
     expect(f[1]!.hp).toBeGreaterThanOrEqual(hpBeforeBlock); // blocked: no damage (training regen may add)
