@@ -9,6 +9,7 @@ import type { WebGPURenderer } from 'three/webgpu';
 import { InputSystem } from '@/input/InputSystem';
 import { Session } from './Session';
 import { GREYBOX } from '@/data/characters/greybox';
+import { GameAudio } from '@/audio';
 
 export interface GameOptions {
   canvas: HTMLCanvasElement;
@@ -29,6 +30,7 @@ export interface GameOptions {
 export class Game {
   readonly loop: FixedStepLoop;
   readonly input = new InputSystem();
+  readonly audio = new GameAudio({ theme: 'dojo' });
   renderer!: WebGPURenderer;
   backend: Backend = 'webgl2';
   quality: QualitySettings = QUALITY_PRESETS.medium;
@@ -59,6 +61,8 @@ export class Game {
     this.onResize();
     window.addEventListener('resize', () => this.onResize());
     this.input.attach();
+    this.audio.attachUnlock(window);
+    void this.audio.init();
     this.unbind = bindDebugHotkeys((key, v) => {
       if (key === 'profiler') this.profiler.setVisible(v);
     });
@@ -79,6 +83,8 @@ export class Game {
       uiRoot: this.opts.uiRoot,
       debugRoot: this.opts.debugRoot,
       input: this.input,
+      audio: this.audio,
+      maxParticles: this.quality.particlesMax,
     });
   }
 
@@ -86,6 +92,7 @@ export class Game {
     this.quality = q;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2) * q.renderScale);
     this.renderer.shadowMap.enabled = q.shadows;
+    this.session?.vfx.setQuality(q.particlesMax);
   }
 
   private aspect(): number {
@@ -107,6 +114,7 @@ export class Game {
     this.unbind?.();
     this.input.detach();
     this.session?.dispose();
+    this.audio.dispose();
     this.renderer.dispose();
   }
 

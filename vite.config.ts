@@ -8,6 +8,10 @@ export default defineConfig({
     sourcemap: false,
     chunkSizeWarningLimit: 1500,
     rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        animation: fileURLToPath(new URL('./tools/animation.html', import.meta.url)),
+      },
       output: {
         manualChunks(id: string) {
           if (id.includes('node_modules/three')) return 'three';

@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { bootGame, getGlobal } from './helpers';
+import { bootGame, getGlobal, waitFrames } from './helpers';
 
-test('boots the grey-box scene with no console errors', async ({ page }) => {
+test('boots the arena at default quality with no console errors', async ({ page }) => {
   const consoleErrors = await bootGame(page);
-  await page.waitForTimeout(1000);
+  await waitFrames(page, 30);
   const g = await getGlobal(page);
-  expect(g.simFrame).toBeGreaterThan(30);
+  expect(g.simFrame).toBeGreaterThanOrEqual(30);
   expect(g.errors).toEqual([]);
   expect(consoleErrors).toEqual([]);
   await page.keyboard.press('F3');

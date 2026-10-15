@@ -41,27 +41,11 @@ export class GreyBoxScene {
     this.scene.add(grid);
 
     for (let i = 0; i < 2; i++) {
-      const g = this.makeCapsuleFighter(i === 0 ? 0xff7a1a : 0x26c6ff);
-      g.position.set(i === 0 ? -1.2 : 1.2, 0, 0);
+      const g = new THREE.Group();
+      g.position.set(i === 0 ? -0.9 : 0.9, 0, 0);
       this.fighters.push(g);
       this.scene.add(g);
     }
-  }
-
-  private makeCapsuleFighter(color: number): THREE.Group {
-    const group = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.1 });
-    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.28, 1.1, 8, 16), mat);
-    body.position.y = 0.95;
-    body.castShadow = true;
-    body.receiveShadow = true;
-    group.add(body);
-    // facing indicator (a small nose) so facing is visible in grey-box
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 12), new THREE.MeshStandardMaterial({ color: 0xffffff }));
-    nose.rotation.x = Math.PI / 2;
-    nose.position.set(0, 1.45, 0.38);
-    group.add(nose);
-    return group;
   }
 
   resize(aspect: number): void {

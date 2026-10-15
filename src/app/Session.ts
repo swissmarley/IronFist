@@ -1,4 +1,7 @@
+import type * as THREE from 'three/webgpu';
 import type { WebGPURenderer } from 'three/webgpu';
+import { PALETTES } from '@/render/rig/RigMaterials';
+import { DEFAULT_STYLE } from '@/render/rig/RigGeometry';
 import { MatchSim } from '@/sim/match';
 import type { MatchConfig } from '@/sim/config';
 import type { CharacterDef } from '@/sim/types';
@@ -15,6 +18,8 @@ import { EvType } from '@/sim/events';
 import { RoundPhase } from '@/sim/match';
 import { IN_START, type InputFrame } from '@/input/InputFrame';
 import { TUNING } from '@/sim/config';
+import type { GameAudio } from '@/audio';
+import { VfxManager } from '@/render/vfx/VfxManager';
 
 export interface SessionOptions {
   chars: [CharacterDef, CharacterDef];
@@ -23,6 +28,8 @@ export interface SessionOptions {
   uiRoot: HTMLElement;
   debugRoot: HTMLElement;
   input: InputSystem;
+  audio?: GameAudio;
+  maxParticles?: number;
 }
 
 /**
@@ -38,8 +45,10 @@ export class Session {
   readonly hud: Hud;
   readonly frameData: FrameDataOverlay;
   readonly inputDisplay: InputDisplay;
+  readonly vfx: VfxManager;
   private readonly input: InputSystem;
   private readonly scene: GreyBoxScene;
+  private readonly audio: GameAudio | null;
   /** Inputs recorded this session (for replay / tests). */
   readonly inputLog: number[] = [];
   private lastInputs: [InputFrame, InputFrame] = [0, 0];
@@ -52,10 +61,15 @@ export class Session {
     this.sim = new MatchSim(o.chars, o.match);
     this.scene = o.scene;
     this.input = o.input;
-    this.views = [new FighterView(o.scene.fighters[0] as never, 0xff7a1a), new FighterView(o.scene.fighters[1] as never, 0x26c6ff)];
+    this.audio = o.audio ?? null;
+    this.views = [
+      new FighterView(o.scene.fighters[0] as THREE.Group, this.sim.chars[0], { palette: PALETTES.karate }),
+      new FighterView(o.scene.fighters[1] as THREE.Group, this.sim.chars[1], { palette: PALETTES.p2, style: { ...DEFAULT_STYLE, hair: 'spiky' } }),
+    ];
     this.camera = new CameraRig(o.scene.camera);
     this.hitboxes = new HitboxViewer();
     o.scene.scene.add(this.hitboxes.group);
+    this.vfx = new VfxManager(o.scene.scene, { maxParticles: o.maxParticles ?? 5000 });
     this.hud = new Hud(o.uiRoot);
     this.hud.setNames(o.chars[0].name, o.chars[1].name);
     this.frameData = new FrameDataOverlay(o.debugRoot);
@@ -97,6 +111,10 @@ export class Session {
 
   private consumeEvents(): void {
     for (const e of this.sim.events.items) {
+      this.audio?.onSimEvent(e, this.sim.fighters[e.a as 0 | 1]?.x);
+      const actor = this.sim.fighters[e.a as 0 | 1] ?? this.sim.fighters[0];
+      this.vfx.onSimEvent(e, actor.fx, actor.fz);
+      if (e.type === EvType.RoundEnd) this.audio?.announceRoundResult(this.sim.round.lastRoundResult, this.sim.round.winner);
       switch (e.type) {
         case EvType.Hit:
         case EvType.Counter: {
@@ -138,8 +156,8 @@ export class Session {
   render(alpha: number, dtMs: number, renderer: WebGPURenderer): void {
     const [a, b] = this.sim.fighters;
     const slowmo = this.sim.round.phase === RoundPhase.KO;
-    this.views[0].update(a, alpha, dtMs);
-    this.views[1].update(b, alpha, dtMs);
+    this.views[0].update(a, b, alpha, dtMs);
+    this.views[1].update(b, a, alpha, dtMs);
     this.camera.update(a, b, alpha, dtMs, slowmo);
     this.hitboxes.setVisible(debugFlags.hitboxes);
     this.hitboxes.update(this.sim.fighters, this.sim.chars);
@@ -148,10 +166,17 @@ export class Session {
     this.inputDisplay.setVisible(debugFlags.inputDisplay);
     this.inputDisplay.render();
     this.hud.update(this.sim, dtMs);
+    this.vfx.update(slowmo ? dtMs / 3 : dtMs, this.scene.camera.position);
+    if (this.audio) {
+      this.audio.setListener(Math.trunc((a.x + b.x) / 2), Math.trunc((a.z + b.z) / 2));
+      this.audio.setHealthState(a.hp / a.maxHp, b.hp / b.maxHp, this.sim.round.phase);
+      this.audio.update(dtMs);
+    }
     renderer.render(this.scene.scene, this.scene.camera);
   }
 
   dispose(): void {
+    this.vfx.dispose();
     this.scene.scene.remove(this.hitboxes.group);
     this.hud.el.remove();
   }

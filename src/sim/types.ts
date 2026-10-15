@@ -109,8 +109,26 @@ export interface ThrowDef {
   chain?: { moveId: string; windowStart: number; windowEnd: number }[];
 }
 
+/** Animation template selection for a move (render-side data, ignored by the sim). */
+export type AttackAnimType =
+  | 'jab' | 'straight' | 'hook' | 'uppercut' | 'elbow' | 'backfist' | 'hammer' | 'palm' | 'doublePunch'
+  | 'front' | 'round' | 'low' | 'sweep' | 'hop' | 'knee' | 'spinBack' | 'axe' | 'side' | 'rising' | 'ground'
+  | 'throw' | 'parry' | 'powerCrush';
+
+export interface AnimSpec {
+  type: AttackAnimType;
+  /** Striking limb side. Default: 'R' for punches/kicks. */
+  limb?: 'L' | 'R';
+  /** Target height; defaults from the hit level. */
+  height?: 'high' | 'mid' | 'low';
+  /** Extra strikes for multi-hit moves: [frame, type, limb] (frame = hit frame). */
+  extra?: [number, AttackAnimType, 'L' | 'R'][];
+}
+
 export interface MoveDef {
   id: string;
+  /** Animation template (render only). */
+  anim?: AnimSpec;
   name: string;
   /** Display notation of the full sequence, e.g. "1,2" or "f,f+2". */
   input: string;

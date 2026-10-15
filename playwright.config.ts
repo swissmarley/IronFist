@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 const PREINSTALLED = process.env.PW_CHROMIUM_PATH ?? '/opt/pw-browsers/chromium';
 const executablePath = !process.env.CI && existsSync(PREINSTALLED) ? PREINSTALLED : undefined;
 
-const PORT = 4173;
+const PORT = Number(process.env.PW_PORT ?? 4173);
 
 export default defineConfig({
   testDir: './e2e',
