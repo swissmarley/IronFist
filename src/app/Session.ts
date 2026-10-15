@@ -11,6 +11,7 @@ import { FighterView } from '@/render/FighterView';
 import { CameraRig } from '@/render/CameraRig';
 import { HitboxViewer } from '@/render/HitboxViewer';
 import { Hud } from '@/ui/Hud';
+import { ContactShadow } from '@/render/ContactShadow';
 import { FrameDataOverlay } from '@/debug/FrameDataOverlay';
 import { InputDisplay } from '@/debug/InputDisplay';
 import { debugFlags } from '@/debug/DebugFlags';
@@ -46,6 +47,7 @@ export class Session {
   readonly camera: CameraRig;
   readonly hitboxes: HitboxViewer;
   readonly hud: Hud;
+  private readonly shadows: [ContactShadow, ContactShadow];
   private readonly soundCues: boolean;
   readonly frameData: FrameDataOverlay;
   readonly inputDisplay: InputDisplay;
@@ -81,6 +83,7 @@ export class Session {
     this.hitboxes = new HitboxViewer();
     o.scene.scene.add(this.hitboxes.group);
     this.vfx = new VfxManager(o.scene.scene, { maxParticles: o.maxParticles ?? 5000 });
+    this.shadows = [new ContactShadow(o.scene.scene), new ContactShadow(o.scene.scene)];
     this.hud = new Hud(o.uiRoot);
     this.hud.setNames(o.chars[0].name, o.chars[1].name);
     this.frameData = new FrameDataOverlay(o.debugRoot);
@@ -168,6 +171,8 @@ export class Session {
     const slowmo = this.sim.round.phase === RoundPhase.KO;
     this.views[0].update(a, b, alpha, dtMs);
     this.views[1].update(b, a, alpha, dtMs);
+    this.shadows[0].update(this.views[0].group.position);
+    this.shadows[1].update(this.views[1].group.position);
     this.camera.update(a, b, alpha, dtMs, slowmo);
     this.hitboxes.setVisible(debugFlags.hitboxes);
     this.hitboxes.update(this.sim.fighters, this.sim.chars);
@@ -193,6 +198,7 @@ export class Session {
     this.vfx.dispose();
     for (const v of this.views) { v.group.remove(v.rig.group); v.rig.dispose(); }
     this.scene.scene.remove(this.hitboxes.group);
+    this.shadows[0].dispose(); this.shadows[1].dispose();
     this.hud.el.remove();
   }
 }
