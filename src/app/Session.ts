@@ -34,6 +34,8 @@ export interface SessionOptions {
   arena?: ArenaDef;
   /** Accessibility: play a pitched cue when an attack starts (high / mid / low). */
   soundCues?: boolean;
+  /** True while the game loop is paused (tests, frame advance): hold cosmetic wall-clock motion. */
+  loopPaused?: () => boolean;
   /** Spring-bone segment cap per chain from the quality tier. */
   springSegments?: number;
   /** Facial expressions / blinks (off on the potato tier). */
@@ -53,6 +55,7 @@ export class Session {
   readonly hud: Hud;
   private readonly shadows: [ContactShadow, ContactShadow];
   private readonly soundCues: boolean;
+  private readonly loopPaused: () => boolean;
   readonly frameData: FrameDataOverlay;
   readonly inputDisplay: InputDisplay;
   readonly vfx: VfxManager;
@@ -75,6 +78,7 @@ export class Session {
 
   constructor(o: SessionOptions) {
     this.soundCues = o.soundCues === true;
+    this.loopPaused = o.loopPaused ?? (() => false);
     this.sim = new MatchSim(o.chars, { ...(o.arena && !o.match.arena ? { arena: o.arena } : {}), ...o.match });
     this.scene = o.scene;
     this.input = o.input;
@@ -185,8 +189,9 @@ export class Session {
   render(alpha: number, dtMs: number, renderer: WebGPURenderer): void {
     const [a, b] = this.sim.fighters;
     const slowmo = this.sim.round.phase === RoundPhase.KO;
-    this.views[0].update(a, b, alpha, dtMs);
-    this.views[1].update(b, a, alpha, dtMs);
+    const still = this.loopPaused();
+    this.views[0].update(a, b, alpha, dtMs, still);
+    this.views[1].update(b, a, alpha, dtMs, still);
     this.shadows[0].update(this.views[0].group.position);
     this.shadows[1].update(this.views[1].group.position);
     this.camera.update(a, b, alpha, dtMs, slowmo);

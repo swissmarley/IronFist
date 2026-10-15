@@ -141,6 +141,7 @@ export class Game {
       chars, match: config, scene: this.scene, uiRoot: this.opts.uiRoot, debugRoot: this.opts.debugRoot, input: this.input, audio: this.audio,
       maxParticles: this.quality.particlesMax,
       springSegments: this.quality.springSegments,
+      loopPaused: () => this.loop.isPaused(),
       faceExpressions: this.quality.faceExpressions,
       soundCues: this.settings.get().accessibility.soundCues,
       ...(this.scene.stage ? { arena: this.scene.stage.arena } : {}),

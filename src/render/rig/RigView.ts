@@ -88,9 +88,9 @@ export class RigView {
    * Step the spring chains after `applyPose` (and after the parent group's
    * transform is set). `timeScale` < 1 slows them during hit-stop.
    */
-  updateSprings(dtMs: number, timeScale = 1): void {
+  updateSprings(dtMs: number, timeScale = 1, holdBreeze = false): void {
     if (this.springs.chains.length === 0) return;
-    this.springTime += dtMs;
+    if (!holdBreeze) this.springTime += dtMs;
     const t = this.springTime * 0.001;
     const u = this.springUpdate;
     u.timeScale = timeScale;

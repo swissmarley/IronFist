@@ -39,7 +39,12 @@ export class FighterView {
     this.rig.triggerFlash(strength);
   }
 
-  update(f: FighterState, o: FighterState | null, alpha: number, dtMs: number): void {
+  /**
+   * `stillCosmetics` (the game loop is paused: tests, frame advance) holds the purely
+   * cosmetic wall-clock motion (blinks, expression easing, hair breeze) so a paused
+   * frame is reproducible; pose crossfades and spring settling still run.
+   */
+  update(f: FighterState, o: FighterState | null, alpha: number, dtMs: number, stillCosmetics = false): void {
     const x = (f.px + (f.x - f.px) * alpha) * MM;
     const y = (f.py + (f.y - f.py) * alpha) * MM;
     const z = (f.pz + (f.z - f.pz) * alpha) * MM;
@@ -56,8 +61,8 @@ export class FighterView {
 
     const pose = this.animator.update(f, o, alpha, dtMs);
     this.rig.applyPose(pose);
-    this.updateSprings(f, o, x, z, dtMs);
-    if (this.face && this.faceInfo) this.rig.setFaceWeights(faceWeights(readFaceSignals(f, this.faceInfo, this.faceSignals), this.face, dtMs));
+    this.updateSprings(f, o, x, z, dtMs, stillCosmetics);
+    if (this.face && this.faceInfo) this.rig.setFaceWeights(faceWeights(readFaceSignals(f, this.faceInfo, this.faceSignals), this.face, stillCosmetics ? 0 : dtMs));
     this.rig.updateEffects(dtMs, f.ko === 1, f.state === FState.Blockstun);
   }
 
@@ -67,7 +72,7 @@ export class FighterView {
    * flings them away from the attacker; during hit-stop they run slowed so the
    * whip plays out as the freeze releases.
    */
-  private updateSprings(f: FighterState, o: FighterState | null, x: number, z: number, dtMs: number): void {
+  private updateSprings(f: FighterState, o: FighterState | null, x: number, z: number, dtMs: number, holdBreeze: boolean): void {
     if (f.hitstop > this.lastHitstop && isReacting(f.state)) {
       let dx = -Math.sin(this.yaw), dz = -Math.cos(this.yaw);
       if (o) {
@@ -81,7 +86,7 @@ export class FighterView {
       this.rig.springImpulse(dx * s, up, dz * s);
     }
     this.lastHitstop = f.hitstop;
-    this.rig.updateSprings(dtMs, f.hitstop > 0 ? 0.3 : 1);
+    this.rig.updateSprings(dtMs, f.hitstop > 0 ? 0.3 : 1, holdBreeze);
   }
 
   /** Snap hair/cloth chains to rest (round resets, rematches). */
