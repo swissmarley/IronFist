@@ -1,6 +1,6 @@
 # IRON FIST — working notes for Claude Code
 
-Original 3D browser fighting game (see docs/SPEC.md). Current phase: **5 done (AI & balance, 6 stages) → 6 (polish, performance, accessibility, bug bash)**.
+Original 3D browser fighting game (see docs/SPEC.md). Current phase: **0–7 delivered (Phase 7 online = rollback over WebRTC). Open: facial blendshapes, online polish (rematch, auto input delay, signalling server, desync recovery)**.
 
 ## Commands
 - `pnpm install` — install (pnpm 10, Node 22)

@@ -68,7 +68,7 @@
 - [x] Spring-bone hair, belt ends and cloth flaps on every fighter (D-023)
 - [x] Per-character stance on the character-select turntable
 - [ ] Facial blendshapes (not started)
-- [ ] Bug bash + full `pnpm test:all` on the final build
+- [x] Bug bash (no shipped TODO/console.log/`any`) + full `pnpm test:all` on the final build: 166 unit tests, 67 Playwright specs green
 
 ## Phase 7 — Stretch
 - [x] Rollback netcode (D-025): `MatchSim.snapshot/restore`; `src/net` RollbackSession (input delay 2, prediction, 8-frame window + stall, time sync, confirmed-hash desync check), binary protocol, loopback + WebRTC transports, copy/paste signalling with a `?signal=` hook
