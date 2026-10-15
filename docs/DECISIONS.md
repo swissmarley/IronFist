@@ -89,3 +89,19 @@
   tests stay deterministic. Related rendering rules: stage exposure is applied before bloom
   (so dark-graded stages do not halo bright costumes) and cloth albedo is capped at 0.72
   linear in `RigMaterials` (white gis keep their folds instead of clipping).
+- **D-024 Stances, intros and wins are render-only pose sets picked by id.** Each
+  `CharacterDef` names `anim: { stance, intro, win }` (strings, so src/data stays free of
+  `three`); src/anim/stances.ts and src/anim/ceremonies.ts own the pose sets, and a missing
+  or unknown id falls back to the greybox clips, which are unchanged (E2E baselines hold).
+  Poses are authored as Euler upper bodies plus foot plants and wrist targets that are
+  solved once by the existing two-bone IK (src/anim/plant.ts) and converted back to Euler,
+  so feet sit flat on the floor and arms clear the torso by construction and everything
+  still composes with the Euler clip pipeline. The stance's first key is the fighter's rest
+  pose: idle, walk upper body and the start/end keys of short clips and every move clip use
+  it, but a move's active frames never do, so the baked hit capsules are identical with or
+  without a stance (unit-tested). Gameplay hurtboxes deliberately stay baked from the shared
+  neutral STANCE/CROUCH: stances are cosmetic, and a low wrestler or side-on fencer must not
+  change what hits them right after balance pass 1. Intros settle into the stance by
+  `roundStartFrames`; wins hold their last key. Root offsets are authored for a 1.78 m
+  skeleton, so `FighterAnimator` scales them by `look.heightScale` to keep scaled rigs'
+  feet planted.

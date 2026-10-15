@@ -161,6 +161,7 @@ export const SERAPHINE: CharacterDef = {
     palette: { skin: 0xe8c9b0, top: 0x6a2c91, pants: 0x1b1530, belt: 0xc9a7ff, gloves: 0x4b1f6e, boots: 0x1b1530, hair: 0xd8d0ff },
     hair: 'long', heightScale: 0.97, bulk: 0.85,
   },
+  anim: { stance: 'fencer', intro: 'salute', win: 'reverence' },
   stats: {
     hp: 170, height: 1727,
     walkF: 28, walkB: 24,

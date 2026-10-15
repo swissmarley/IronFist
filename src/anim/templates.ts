@@ -219,10 +219,14 @@ function resolve(e: PoseEuler, ik?: IkRequest[]): Pose {
   return p;
 }
 
-/** Build the animation clip for a move from its frame data and template. */
-export function buildMoveClip(m: MoveDef): Clip {
+/**
+ * Build the animation clip for a move from its frame data and template.
+ * `rest` is the character's stance: only the first and last keys use it, so
+ * the active frames (and therefore the baked hit capsules) never depend on it.
+ */
+export function buildMoveClip(m: MoveDef, rest: PoseEuler = STANCE): Clip {
   const spec = m.anim ?? defaultAnim(m);
-  const base = STANCE;
+  const base = rest;
   if (spec.type === 'throw') {
     const t = m.throw;
     const grab = t?.grabFrame ?? 12;
@@ -254,8 +258,9 @@ export function buildMoveClip(m: MoveDef): Clip {
     const r = p.root ?? [0, 0, 0];
     return { ...p, root: [r[0], Math.min(r[1], -0.50), r[2] + 0.06], spine: [22, p.spine?.[1] ?? 6, 0] };
   };
+  const restPose = resolve(crouched ? stanceBase : rest);
   const keys: { t: number; pose: Pose; ease?: Ease }[] = [
-    { t: 0, pose: resolve(stanceBase) },
+    { t: 0, pose: restPose },
     { t: windT, pose: resolve(fix({ ...stanceBase, ...k.windup })), ease: 'out' },
     { t: startup, pose: resolve(fix({ ...stanceBase, ...k.strike }), k.ikStrike), ease: 'snap' },
     { t: lastActive + 2, pose: resolve(fix({ ...stanceBase, ...k.follow }), k.ikFollow), ease: 'out' },
@@ -269,7 +274,7 @@ export function buildMoveClip(m: MoveDef): Clip {
     keys.push({ t: hf + 3, pose: resolve(fix({ ...stanceBase, ...k2.follow }), k2.ikFollow), ease: 'out' });
     tCursor = hf + 3;
   }
-  keys.push({ t: m.total, pose: resolve(stanceBase), ease: 'inOut' });
+  keys.push({ t: m.total, pose: crouched ? resolve(stanceBase) : restPose, ease: 'inOut' });
   return makeClipFromPoses(m.id, m.total, keys);
 }
 

@@ -221,6 +221,7 @@ export const BORIS: CharacterDef = {
     hair: 'short', heightScale: 1.08, bulk: 1.25, heavy: true,
     parts: { shoulderL: 'skin', shoulderR: 'skin', upperArmL: 'skin', upperArmR: 'skin' },
   },
+  anim: { stance: 'grappler', intro: 'flex', win: 'roar' },
   stats: {
     hp: 170, height: 1920,
     walkF: 20, walkB: 17,

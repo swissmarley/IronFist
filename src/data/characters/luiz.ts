@@ -231,6 +231,7 @@ export const LUIZ: CharacterDef = {
     hair: 'long', heightScale: 1.0, bulk: 1.0,
     parts: { spine: 'skin', chest: 'skin', shoulderL: 'skin', shoulderR: 'skin', upperArmL: 'skin', upperArmR: 'skin', handL: 'skin', handR: 'skin', footL: 'skin', footR: 'skin' },
   },
+  anim: { stance: 'ginga', intro: 'cocorinha', win: 'roda' },
   stats: {
     hp: 170, height: 1780,
     walkF: 25, walkB: 22,

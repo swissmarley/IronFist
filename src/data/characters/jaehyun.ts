@@ -196,6 +196,7 @@ export const JAEHYUN: CharacterDef = {
     palette: { skin: 0xd9a97c, top: 0xf4f4f4, pants: 0xf0f0f0, belt: 0x141414, gloves: 0xd9a97c, boots: 0xd9a97c, hair: 0x151515 },
     hair: 'spiky', heightScale: 1.02, bulk: 0.95,
   },
+  anim: { stance: 'taekwondo', intro: 'tkdbow', win: 'axe' },
   stats: {
     hp: 170, height: 1815,
     walkF: 26, walkB: 22,

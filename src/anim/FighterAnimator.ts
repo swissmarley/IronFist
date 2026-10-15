@@ -4,8 +4,9 @@ import { FState } from '@/sim/fighterState';
 import type { CharacterRuntime } from '@/sim/character';
 import { GETUP_KIPUP, GETUP_ROLL_BACK, GETUP_STAND } from '@/sim/oki';
 import { buildClipSet, type ClipSet } from './clips';
-import { evaluateClip, Pose, type Clip } from './pose';
+import { evaluateClip, Pose, type Clip, type PoseEuler } from './pose';
 import { buildMoveClip, buildThrownClip } from './templates';
+import { resolveStance } from './stances';
 
 const BLEND_FRAMES = 4;
 
@@ -15,6 +16,8 @@ const BLEND_FRAMES = 4;
  */
 export class FighterAnimator {
   readonly pose = new Pose();
+  /** Render output: `pose` with the root offset scaled to the rig's height. */
+  private readonly out = new Pose();
   private readonly target = new Pose();
   private readonly from = new Pose();
   private clips: ClipSet;
@@ -22,19 +25,30 @@ export class FighterAnimator {
   private current: Clip | null = null;
   private blend = 1; // 0..1 progress of the crossfade from `from` to the current clip
   private readonly rt: CharacterRuntime;
+  /** The character's stance rest pose: attacks start from and return to it. */
+  private readonly rest: PoseEuler;
+  /** Root offsets are authored for a 1.78 m skeleton; scaled rigs scale them so feet stay planted. */
+  private readonly rootScale: number;
   private shudder = 0;
   private readonly tmpQ = new Quaternion();
   private readonly tmpV = new Vector3();
 
-  constructor(rt: CharacterRuntime, clips: ClipSet = buildClipSet()) {
+  constructor(rt: CharacterRuntime, clips: ClipSet = buildClipSet(rt.def.anim)) {
     this.rt = rt;
     this.clips = clips;
+    this.rest = resolveStance(rt.def.anim?.stance).rest;
+    this.rootScale = rt.def.look?.heightScale ?? 1;
   }
 
   private moveClip(idx: number): Clip {
     let c = this.moveClips.get(idx);
-    if (!c) { c = buildMoveClip(this.rt.move(idx)); this.moveClips.set(idx, c); }
+    if (!c) { c = buildMoveClip(this.rt.move(idx), this.rest); this.moveClips.set(idx, c); }
     return c;
+  }
+
+  /** The thrower clip (shared throw keys ending in this character's stance), time-scaled per throw. */
+  throwBase(): Clip {
+    return this.clips.throwing;
   }
 
   /** Select the clip and local time for the fighter's state. */
@@ -117,7 +131,10 @@ export class FighterAnimator {
       this.tmpQ.setFromAxisAngle(this.tmpV.set(1, 0, 0), 0.4);
       (this.pose.rots[1] as Quaternion).multiply(this.tmpQ);
     }
-    return this.pose;
+    if (this.rootScale === 1) return this.pose;
+    this.out.copy(this.pose);
+    this.out.root.multiplyScalar(this.rootScale);
+    return this.out;
   }
 }
 
@@ -127,7 +144,7 @@ function throwerClip(a: FighterAnimator, moveIdx: number, duration: number): Cli
   if (!m) { m = new Map(); throwerCache.set(a, m); }
   let c = m.get(moveIdx);
   if (!c) {
-    const base = buildClipSet().throwing;
+    const base = a.throwBase();
     const scale = duration / base.length;
     c = { name: `throw${moveIdx}`, length: duration, loop: false, keys: base.keys.map((k) => ({ t: k.t * scale, pose: k.pose, ease: k.ease })) };
     m.set(moveIdx, c);

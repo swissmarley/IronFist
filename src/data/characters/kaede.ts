@@ -208,6 +208,7 @@ export const KAEDE: CharacterDef = {
     hair: 'bun', heightScale: 0.96, bulk: 0.95,
     parts: { footL: 'skin', footR: 'skin' },
   },
+  anim: { stance: 'karate', intro: 'bow', win: 'kiai' },
   stats: {
     hp: 170, height: 1710,
     walkF: 26, walkB: 21,

@@ -168,6 +168,7 @@ export const GOLEM: CharacterDef = {
     palette: { skin: 0x6f6f6f, top: 0x5c5c5c, pants: 0x4a4a4a, belt: 0x3a3a3a, gloves: 0x6f6f6f, boots: 0x505050, hair: 0x6f6f6f },
     hair: 'none', heightScale: 1.25, bulk: 1.3, heavy: true,
   },
+  anim: { stance: 'golem', intro: 'awaken', win: 'slam' },
   stats: {
     hp: 170, height: 2225,
     walkF: 16, walkB: 14,

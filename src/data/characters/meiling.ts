@@ -226,6 +226,7 @@ export const MEILING: CharacterDef = {
     hair: 'bun', heightScale: 0.94, bulk: 0.9,
     parts: { handL: 'skin', handR: 'skin' },
   },
+  anim: { stance: 'wushu', intro: 'baoquan', win: 'crane' },
   stats: {
     hp: 170, height: 1670,
     walkF: 27, walkB: 22,

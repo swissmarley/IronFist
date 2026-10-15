@@ -165,6 +165,7 @@ export const RICARDO: CharacterDef = {
     palette: { skin: 0xb9825a, top: 0x1f2230, pants: 0x6b6e73, belt: 0x2b2b2b, gloves: 0x3a2a1a, boots: 0x222222, hair: 0x2a1a10 },
     hair: 'short', heightScale: 1.0, bulk: 1.0,
   },
+  anim: { stance: 'mma', intro: 'gloves', win: 'victory' },
   stats: {
     hp: 170, height: 1780,
     walkF: 26, walkB: 21,

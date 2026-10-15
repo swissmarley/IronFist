@@ -20,6 +20,26 @@ const SHEETS: [string, string, string][] = [
   ['move:throw13', '0,12,20,40', 'side'],
 ];
 
+/** Per-character stance idle (front/side), intro and win sheets: [char, clip, frames, view]. */
+const ROSTER = ['kaede', 'boris', 'luiz', 'meiling', 'jaehyun', 'seraphine', 'ricardo', 'golem'];
+const CHAR_SHEETS: [string, string, string, string][] = ROSTER.flatMap((c): [string, string, string, string][] => [
+  [c, 'idle', '0,30,60,90', '3q'],
+  [c, 'idle', '0,30,60,90', 'side'],
+  [c, 'intro', '0,30,60,80,100', '3q'],
+  [c, 'win', '0,30,60,100,140', '3q'],
+]);
+
+for (const [char, clip, frames, view] of CHAR_SHEETS) {
+  test(`contact sheet ${char} ${clip} ${view}`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`/tools/animation.html?char=${char}&clip=${clip}&frames=${frames}&view=${view}&cols=5`);
+    await page.waitForFunction(() => ((window as unknown as { __animTool?: { rendered: number } }).__animTool?.rendered ?? 0) > 0, null, { timeout: 60_000 });
+    await page.locator('#sheet').screenshot({ path: `test-results/anim/char-${char}-${clip}-${view}.png` });
+    expect(errors).toEqual([]);
+  });
+}
+
 for (const [clip, frames, view] of SHEETS) {
   test(`contact sheet ${clip} ${view}`, async ({ page }) => {
     const errors: string[] = [];

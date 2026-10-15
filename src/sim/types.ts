@@ -204,6 +204,13 @@ export interface CharacterLook {
   parts?: Partial<Record<string, 'skin' | 'top' | 'pants' | 'belt' | 'gloves' | 'boots' | 'hair'>>;
 }
 
+/** Named pose sets a character animates with (see src/anim/stances.ts and ceremonies.ts). Ignored by the sim. */
+export interface CharacterAnimSpec {
+  stance?: string;
+  intro?: string;
+  win?: string;
+}
+
 export interface CharacterDef {
   id: string;
   name: string;
@@ -211,7 +218,8 @@ export interface CharacterDef {
   /** Short bio / fighting-style line for the select screen. */
   tagline?: string;
   look?: CharacterLook;
-  /** Character-specific stance idle poses are keyed by stance id (render only). */
+  /** Render-only choice of idle stance / intro / win pose sets (ids from src/anim; unknown ids fall back to the greybox default). */
+  anim?: CharacterAnimSpec;
   stats: CharacterStats;
   hurtboxes: { stand: CapsuleDef[]; crouch: CapsuleDef[]; air: CapsuleDef[]; lying: CapsuleDef[] };
   moves: MoveDef[];
