@@ -87,6 +87,19 @@ export class Rng {
   setState(s: readonly [number, number, number, number]): void {
     [this.s0, this.s1, this.s2, this.s3] = s;
   }
+
+  /** Write the 4 state words into `out` at `offset` (no allocation); returns the next offset. */
+  saveTo(out: Int32Array, offset: number): number {
+    out[offset] = this.s0 | 0; out[offset + 1] = this.s1 | 0; out[offset + 2] = this.s2 | 0; out[offset + 3] = this.s3 | 0;
+    return offset + 4;
+  }
+
+  /** Inverse of `saveTo`; returns the next offset. */
+  loadFrom(src: Int32Array, offset: number): number {
+    this.s0 = (src[offset] as number) >>> 0; this.s1 = (src[offset + 1] as number) >>> 0;
+    this.s2 = (src[offset + 2] as number) >>> 0; this.s3 = (src[offset + 3] as number) >>> 0;
+    return offset + 4;
+  }
 }
 
 function rotl(x: number, k: number): number {

@@ -142,3 +142,11 @@ input reading. Validated by headless batch matches.
 
 Ultra/High/Medium/Low/Potato chosen by a short benchmark with manual override.
 Targets: 60 fps locked at Medium on mid-range laptops; 120 fps at Ultra on high-end.
+
+## 13. Online
+
+Two players over WebRTC with rollback netcode (D-025). ONLINE in the main menu: the host
+sends a code, the guest pastes it and sends a reply back (no server). Host is P1, guest
+P2; each picks their own fighter, the host picks the stage. 2 frames of input delay, up to
+8 frames of rollback, then the game waits for the opponent. No pause or KO slow motion
+online; a desync (hash mismatch on a confirmed frame) is shown in the net HUD.

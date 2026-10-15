@@ -5,7 +5,7 @@ import type { InputFrame } from './InputFrame';
 export class KeyboardSource {
   private held = new Set<string>();
   private readonly onDown = (e: KeyboardEvent): void => {
-    if (e.repeat) return;
+    if (e.repeat || isTextField(e.target)) return;
     this.held.add(e.code);
     if (this.isBound(e.code)) e.preventDefault();
   };
@@ -65,4 +65,10 @@ export class KeyboardSource {
   setKey(code: string, down: boolean): void {
     if (down) this.held.add(code); else this.held.delete(code);
   }
+}
+
+/** Keys typed into text inputs (online signalling codes) are not game input. */
+function isTextField(t: EventTarget | null): boolean {
+  if (typeof HTMLElement === 'undefined' || !(t instanceof HTMLElement)) return false;
+  return t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.isContentEditable;
 }

@@ -12,9 +12,11 @@ import { applyPushAndBounds, faceOpponent, moveForward, separate, stepLocomotion
 import { checkRoundEnd, newRoundState, RoundPhase, stepRoundPhase, type RoundState } from './rounds';
 import { advanceThrow, beginThrow, breakInput, resolveBreak, throwConnects } from './throws';
 import { stepOki } from './oki';
+import { SnapshotLayout, type MatchSnapshot } from './snapshot';
 import type { CharacterDef } from './types';
 
 export { RoundPhase } from './rounds';
+export type { MatchSnapshot } from './snapshot';
 
 /**
  * The deterministic match simulation. Owns both fighters, the RNG and the round
@@ -31,6 +33,7 @@ export class MatchSim {
   readonly options: ResolveOptions;
   private readonly hitA: (HitResult | null)[] = [null, null];
   private readonly hasher = new Hasher();
+  private layout: SnapshotLayout | null = null;
 
   constructor(defs: [CharacterDef, CharacterDef], config: Partial<MatchConfig> = {}) {
     this.config = { ...DEFAULT_MATCH, ...config };
@@ -296,6 +299,33 @@ export class MatchSim {
     h.int(s[0]).int(s[1]).int(s[2]).int(s[3]);
     h.int(this.round.phase).int(this.round.phaseFrame).int(this.round.timer).int(this.round.wins[0]).int(this.round.wins[1]).int(this.round.roundNumber).int(this.round.winner);
     return h.value();
+  }
+
+  /**
+   * Capture the complete deterministic state (fighters incl. input history, round, RNG,
+   * frame). Pass `out` to reuse a buffer from a pool (rollback keeps a ring of them).
+   */
+  snapshot(out?: MatchSnapshot): MatchSnapshot {
+    return this.snapshotLayout().save(this, out);
+  }
+
+  /**
+   * Rewind to a snapshot taken from this sim. Queued events are dropped: re-simulated
+   * frames re-emit theirs, and the caller decides which of those to present.
+   */
+  restore(s: MatchSnapshot): void {
+    this.snapshotLayout().restore(this, s);
+    this.events.clear();
+  }
+
+  /** An empty snapshot buffer with this sim's layout (for pools). */
+  allocSnapshot(): MatchSnapshot {
+    return this.snapshotLayout().alloc();
+  }
+
+  private snapshotLayout(): SnapshotLayout {
+    if (!this.layout) this.layout = new SnapshotLayout(this.fighters[0]);
+    return this.layout;
   }
 
   isMatchOver(): boolean {

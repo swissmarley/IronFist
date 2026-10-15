@@ -16,7 +16,7 @@ export default [
     },
   },
   {
-    files: ['src/sim/**/*.ts', 'src/core/**/*.ts', 'src/ai/**/*.ts', 'src/data/**/*.ts'],
+    files: ['src/sim/**/*.ts', 'src/core/**/*.ts', 'src/ai/**/*.ts', 'src/data/**/*.ts', 'src/net/**/*.ts'],
     rules: {
       'no-restricted-properties': ['error',
         { object: 'Math', property: 'random', message: 'Sim code must use the seeded RNG.' },

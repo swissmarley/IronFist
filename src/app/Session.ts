@@ -110,8 +110,17 @@ export class Session {
     } else this.slowmoCounter = 0;
     this.sim.config.trainingRegen = this.hpRegen;
     this.sim.step(this.lastInputs);
-    this.lastInputsUsed = [this.lastInputs[0], this.lastInputs[1]];
-    this.inputLog.push(this.lastInputs[0], this.lastInputs[1]);
+    this.presentStep(this.lastInputs);
+  }
+
+  /**
+   * Present a frame the sim just stepped: input log/display and this frame's events
+   * (audio, VFX, HUD). Rollback netcode steps the sim itself and calls this only for
+   * frames shown for the first time, so re-simulated frames never replay their effects.
+   */
+  presentStep(inputs: readonly [InputFrame, InputFrame]): void {
+    this.lastInputsUsed = [inputs[0], inputs[1]];
+    this.inputLog.push(inputs[0], inputs[1]);
     this.inputDisplay.record(this.sim.fighters);
     this.consumeEvents();
   }

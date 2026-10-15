@@ -42,7 +42,17 @@ async function boot(): Promise<void> {
         ...(hp ? { hpOverride: parseInt(hp, 10) } : {}),
         ...(params.get('ringout') ? { arena: { id: 'open', name: 'Open Edge', halfX: 4000, halfZ: 4000, walls: false } } : {}),
       }, cpu);
+    } else if (params.get('online') === 'host' || params.get('online') === 'join') {
+      // online lobby; p1 (host) / p2 (guest) preset this side's pick, stage pins the host's stage
+      const pinned = params.get('stage');
+      if (pinned) app.pinnedStage = pinned;
+      await game.loadStage(pinned ?? 'dojo');
+      app.online.pinned = { p1: params.get('p1'), p2: params.get('p2') };
+      app.online.signal = params.get('signal');
+      if (params.get('ice') === 'none') app.online.rtc = { iceServers: [] };
+      app.openOnline(params.get('online') === 'host' ? 'host' : 'guest');
     } else {
+      if (params.get('signal')) app.online.signal = params.get('signal');
       const pinned = params.get('stage');
       if (pinned) app.pinnedStage = pinned;
       await game.loadStage(pinned ?? 'dojo');

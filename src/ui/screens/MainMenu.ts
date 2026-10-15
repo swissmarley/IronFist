@@ -2,7 +2,7 @@ import type { MenuAction } from '@/input/MenuInput';
 import { MenuList } from '../MenuList';
 import { Screen, h } from '../Screen';
 
-export type MainMenuChoice = 'arcade' | 'versus' | 'practice' | 'survival' | 'timeattack' | 'replays' | 'settings';
+export type MainMenuChoice = 'arcade' | 'versus' | 'online' | 'practice' | 'survival' | 'timeattack' | 'replays' | 'settings';
 
 export class MainMenu extends Screen {
   readonly list: MenuList;
@@ -13,6 +13,7 @@ export class MainMenu extends Screen {
     this.list = new MenuList([
       { id: 'arcade', label: 'ARCADE', hint: 'Fight through 8 stages' },
       { id: 'versus', label: 'VERSUS', hint: 'Local 2 player' },
+      { id: 'online', label: 'ONLINE', hint: '2 players over the internet (rollback netcode)' },
       { id: 'practice', label: 'PRACTICE', hint: 'Training room' },
       { id: 'survival', label: 'SURVIVAL' },
       { id: 'timeattack', label: 'TIME ATTACK' },

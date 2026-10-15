@@ -16,6 +16,10 @@ export class MatchRunner {
   readonly session: Session;
   readonly setup: MatchSetup;
   private readonly ai: [LayeredAI | null, LayeredAI | null] = [null, null];
+  /** Pause menu allowed (online matches cannot pause). */
+  readonly pausable: boolean = true;
+  /** Set when the match cannot continue (online: disconnect); the app leaves the match. */
+  abort: string | null = null;
   private recorder: ReplayRecorder;
   private maxCombo: [number, number] = [0, 0];
   private damage: [number, number] = [0, 0];
@@ -27,7 +31,7 @@ export class MatchRunner {
   playbackSpeed = 1;
   private speedAcc = 0;
 
-  constructor(private readonly game: Game, setup: MatchSetup) {
+  constructor(protected readonly game: Game, setup: MatchSetup) {
     this.setup = setup;
     const p1 = getCharacter(setup.p1), p2 = getCharacter(setup.p2);
     this.session = game.createSession([p1, p2], setup.config);
@@ -73,15 +77,21 @@ export class MatchRunner {
     if (sim.frame !== before) {
       const [a, b] = this.session.lastInputsUsed;
       this.recorder.record(a, b);
-      for (const e of sim.events.items) {
-        if ((e.type === EvType.Hit || e.type === EvType.Counter) && e.b >= 0) {
-          this.damage[e.a as 0 | 1] += e.damage;
-          const victim = sim.fighters[e.b as 0 | 1];
-          this.maxCombo[e.a as 0 | 1] = Math.max(this.maxCombo[e.a as 0 | 1], victim.comboHits);
-        }
-      }
+      this.tally();
     }
     return sim.round.phase === RoundPhase.MatchOver;
+  }
+
+  /** Accumulate damage / max-combo stats from the events of the frame just stepped. */
+  protected tally(): void {
+    const sim = this.session.sim;
+    for (const e of sim.events.items) {
+      if ((e.type === EvType.Hit || e.type === EvType.Counter) && e.b >= 0) {
+        this.damage[e.a as 0 | 1] += e.damage;
+        const victim = sim.fighters[e.b as 0 | 1];
+        this.maxCombo[e.a as 0 | 1] = Math.max(this.maxCombo[e.a as 0 | 1], victim.comboHits);
+      }
+    }
   }
 
   outcome(): MatchOutcome {

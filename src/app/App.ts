@@ -25,8 +25,13 @@ import { PracticeController } from './PracticeController';
 import { IN_START } from '@/input/InputFrame';
 import { notationToFrames } from '@/ai/BasicAI';
 import { SelectScene } from '@/render/SelectScene';
+import { OnlineScreen } from '@/ui/screens/OnlineScreen';
+import { OnlineFlow } from './OnlineFlow';
+import { OnlineMode } from './modes/Online';
+import { NetMatchRunner } from './NetMatchRunner';
+import type { NetPeer, NetRole, OnlineSetup } from '@/net/NetPeer';
 
-type State = 'title' | 'menu' | 'select' | 'stage' | 'loading' | 'cutscene' | 'match' | 'paused' | 'movelist' | 'practiceMenu' | 'results' | 'replays' | 'settings' | 'ending';
+type State = 'title' | 'menu' | 'select' | 'stage' | 'loading' | 'cutscene' | 'match' | 'paused' | 'movelist' | 'practiceMenu' | 'results' | 'replays' | 'settings' | 'ending' | 'online';
 
 /** Application flow: screens, modes and the match runner. Implements the loop driver. */
 export class App {
@@ -46,6 +51,11 @@ export class App {
   private readonly practiceMenu: PracticeMenu;
   private readonly replays: ReplayList;
   private readonly settings: SettingsScreen;
+  private readonly onlineScreen: OnlineScreen;
+  /** Online lobby (`?online=host|join` opens it directly; see OnlineFlow). */
+  readonly online: OnlineFlow;
+  /** Set between the host's start message and the match launch. */
+  private netLaunch: { peer: NetPeer; inputDelay: number } | null = null;
   private mode: Mode | null = null;
   private runner: MatchRunner | null = null;
   private pendingChoice: MainMenuChoice = 'versus';
@@ -60,7 +70,7 @@ export class App {
   readonly roster = Object.values(CHARACTERS).filter((c) => c.id !== 'greybox');
   private readonly selectScene: SelectScene;
 
-  constructor(private readonly game: Game, uiRoot: HTMLElement) {
+  constructor(private readonly game: Game, private readonly uiRoot: HTMLElement) {
     if (this.roster.length === 0) this.roster.push(getCharacter('greybox'));
     this.title = new TitleScreen(uiRoot);
     this.main = new MainMenu(uiRoot);
@@ -76,7 +86,16 @@ export class App {
     this.replays = new ReplayList(uiRoot);
     this.settings = new SettingsScreen(uiRoot, game.settings);
     this.selectScene = new SelectScene(game.scene);
-    this.screens = { title: this.title, menu: this.main, select: this.select, stage: this.stageSel, loading: this.loading, cutscene: this.cutscene, results: this.results, paused: this.pause, movelist: this.moveList, practiceMenu: this.practiceMenu, replays: this.replays, settings: this.settings, ending: this.cutscene };
+    this.onlineScreen = new OnlineScreen(uiRoot);
+    this.online = new OnlineFlow(this.onlineScreen, {
+      show: () => this.go('online'),
+      openSelect: () => this.openSelect(1),
+      openStageSelect: () => this.go('stage'),
+      rules: () => { const s = this.game.settings.get(); return { roundsToWin: s.rounds, roundTimeSec: s.roundTime, stage: this.pinnedStage }; },
+      launch: (setup, peer) => this.launchOnline(setup, peer),
+      abort: (reason) => this.abortOnline(reason),
+    });
+    this.screens = { title: this.title, menu: this.main, select: this.select, stage: this.stageSel, loading: this.loading, cutscene: this.cutscene, results: this.results, paused: this.pause, movelist: this.moveList, practiceMenu: this.practiceMenu, replays: this.replays, settings: this.settings, ending: this.cutscene, online: this.onlineScreen };
     this.wire();
     void loadRecords().then((r) => { this.records = r; });
   }
@@ -87,12 +106,16 @@ export class App {
     this.main.list.onSound = ui;
     this.main.onChoose = (c) => this.chooseMode(c);
     this.select.onSound = ui;
-    this.select.onBack = () => this.go('menu');
+    this.select.onBack = () => { if (this.pendingChoice === 'online') this.online.leave(); this.go('menu'); };
     this.select.onChange = (p, id) => this.selectScene.setFighter(p, getCharacter(id));
-    this.select.onDone = (r) => { this.picked = r; if (this.pendingChoice === 'versus') this.go('stage'); else void this.startMode(); };
+    this.select.onDone = (r) => { if (this.pendingChoice === 'online') { this.online.localPicked(r.p1); return; } this.picked = r; if (this.pendingChoice === 'versus') this.go('stage'); else void this.startMode(); };
     this.stageSel.list.onSound = ui;
     this.stageSel.onBack = () => this.go('select');
-    this.stageSel.onChoose = (id) => { this.chosenStage = id; void this.startMode(); };
+    this.stageSel.onChoose = (id) => {
+      if (this.pendingChoice === 'online') { const ids = STAGE_IDS.filter((s) => s !== 'greybox'); this.online.stageChosen(id === 'random' ? (ids[Date.now() % Math.max(1, ids.length)] ?? 'dojo') : id); return; }
+      this.chosenStage = id; void this.startMode();
+    };
+    this.onlineScreen.onBack = () => { this.online.leave(); this.go('menu'); };
     this.results.list.onSound = ui;
     this.results.onChoose = (c) => this.onResultsChoice(c);
     this.pause.list.onSound = ui;
@@ -134,6 +157,7 @@ export class App {
     switch (c) {
       case 'settings': this.go('settings'); break;
       case 'replays': this.go('replays'); break;
+      case 'online': this.online.open(); break;
       default: this.openSelect(c === 'versus' ? 2 : 1);
     }
   }
@@ -178,7 +202,9 @@ export class App {
     this.go('loading');
     this.splash.set(getCharacter(setup.p1).name, getCharacter(setup.p2).name, setup.stage.toUpperCase());
     await this.game.loadStage(setup.stage);
-    this.runner = new MatchRunner(this.game, setup);
+    const net = this.netLaunch;
+    this.netLaunch = null;
+    this.runner = net ? new NetMatchRunner(this.game, setup, net.peer, net.inputDelay, this.uiRoot) : new MatchRunner(this.game, setup);
     if (this.mode?.id === 'practice' && this.practiceDummy) { this.practice = new PracticeController(this.game, this.runner); this.practice.apply(this.practiceMenu.options); }
     this.go('match');
     this.splash.show();
@@ -208,6 +234,7 @@ export class App {
     const outcome = this.runner.outcome();
     const after: AfterMatch = this.mode.onEnd(outcome);
     void this.saveReplay(this.runner.replay());
+    if (this.runner instanceof NetMatchRunner) this.online.reportStats(this.runner.rb.stats);
     void this.updateRecords(outcome);
     if (after.kind === 'next') { void this.playNext(); return; }
     if (after.kind === 'ending') { this.runCutscene(after.lines, () => { this.endMatch(); this.go('menu'); }, true); return; }
@@ -219,7 +246,7 @@ export class App {
 
   private onResultsChoice(c: string): void {
     this.mode?.onChoice?.(c);
-    if (c === 'menu') { this.endMatch(); this.go('menu'); return; }
+    if (c === 'menu') { this.endMatch(); if (this.mode?.id === 'online') this.online.leave(); this.go('menu'); return; }
     if (c === 'select') { this.endMatch(); this.openSelect(this.pendingChoice === 'versus' ? 2 : 1); return; }
     void this.playNext();
   }
@@ -289,6 +316,29 @@ export class App {
 
   showTitle(): void { this.go('title'); }
 
+  /** Open the online lobby, optionally straight into a role (`?online=host|join`). */
+  openOnline(role: NetRole | null): void {
+    this.pendingChoice = 'online';
+    this.online.open(role);
+  }
+
+  private launchOnline(s: OnlineSetup, peer: NetPeer): void {
+    const setup: MatchSetup = {
+      p1: s.p1, p2: s.p2, stage: s.stage, cpu: [null, null],
+      config: { seed: s.seed, roundsToWin: s.roundsToWin, roundTimeSec: s.roundTimeSec },
+      label: `ONLINE · ${peer.role === 'host' ? 'P1 (HOST)' : 'P2 (GUEST)'}`,
+    };
+    this.mode = new OnlineMode(setup);
+    this.netLaunch = { peer, inputDelay: s.inputDelay };
+    void this.launch(setup);
+  }
+
+  private abortOnline(reason: string): void {
+    if (this.mode?.id === 'online' && this.runner) { this.endMatch(); this.mode = null; }
+    if (this.state !== 'online') this.go('online');
+    this.onlineScreen.setStatus(reason, 'error');
+  }
+
   /** Monotonic loop-tick probe (advances in menus, during pause and in slow motion). */
   frame(): number { return this.frameCounter; }
 
@@ -308,12 +358,14 @@ export class App {
       if (this.runner.session.sim.frame === 90) this.splash.hide();
       const inputs = this.game.input.frames;
       const startPressed = ((inputs[0] ?? 0) | (inputs[1] ?? 0)) & IN_START;
-      if (startPressed && !this.startHeld && this.runner.session.sim.frame > 30 && !this.runner.playback) { this.startHeld = true; this.openPause(); return; }
+      if (this.runner.abort) { const reason = this.runner.abort; this.online.leave(); this.abortOnline(reason); return; }
+      if (startPressed && !this.startHeld && this.runner.pausable && this.runner.session.sim.frame > 30 && !this.runner.playback) { this.startHeld = true; this.openPause(); return; }
       this.startHeld = startPressed !== 0;
       if (this.runner.playback && (((inputs[0] ?? 0) | (inputs[1] ?? 0)) & 0xa0)) { this.endMatch(); this.mode = null; this.go('menu'); return; }
       if (this.runner.step()) this.finishMatch();
       return;
     }
+    if (this.runner instanceof NetMatchRunner) this.runner.pump(); // results screen: let the peer confirm the last frames
     if (this.state === 'cutscene' || this.state === 'ending') {
       this.cutsceneTimer++;
       if (this.cutsceneTimer > 240) { this.cutsceneTimer = 0; this.cutsceneIdx++; const l = this.cutsceneLines[this.cutsceneIdx]; if (l) this.cutscene.say(l.line, l.speaker); else this.endCutscene(); }

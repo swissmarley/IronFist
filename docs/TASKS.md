@@ -68,4 +68,7 @@
 - [ ] Bug bash + full `pnpm test:all` on the final build
 
 ## Phase 7 — Stretch
-- [ ] Rollback netcode
+- [x] Rollback netcode (D-025): `MatchSim.snapshot/restore`; `src/net` RollbackSession (input delay 2, prediction, 8-frame window + stall, time sync, confirmed-hash desync check), binary protocol, loopback + WebRTC transports, copy/paste signalling with a `?signal=` hook
+- [x] ONLINE menu → host/join lobby → character pick (each side) → host stage pick → `NetMatchRunner` match with net HUD (RTT, rollbacks, stalls)
+- [x] Tests: snapshot/restore determinism, two peers over a seeded lossy/jittery channel (2000 frames, 3 profiles), loopback lobby path, `e2e/online.spec.ts` (two tabs over real WebRTC)
+- [ ] Online polish: rematch without reconnecting, spectators, automatic input delay from RTT, a signalling server implementation, desync recovery (state transfer)

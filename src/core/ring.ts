@@ -24,6 +24,27 @@ export class IntRing {
     return this.count;
   }
 
+  /** Ints written by `saveTo` (buffer + head + count). */
+  get snapshotSize(): number {
+    return this.capacity + 2;
+  }
+
+  /** Copy the full ring state into `out` at `offset`; returns the next offset. */
+  saveTo(out: Int32Array, offset: number): number {
+    out.set(this.buf, offset);
+    out[offset + this.capacity] = this.head;
+    out[offset + this.capacity + 1] = this.count;
+    return offset + this.capacity + 2;
+  }
+
+  /** Inverse of `saveTo`; returns the next offset. */
+  loadFrom(src: Int32Array, offset: number): number {
+    this.buf.set(src.subarray(offset, offset + this.capacity));
+    this.head = src[offset + this.capacity] as number;
+    this.count = src[offset + this.capacity + 1] as number;
+    return offset + this.capacity + 2;
+  }
+
   clear(): void {
     this.head = 0;
     this.count = 0;

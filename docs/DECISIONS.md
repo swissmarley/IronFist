@@ -105,3 +105,24 @@
   `roundStartFrames`; wins hold their last key. Root offsets are authored for a 1.78 m
   skeleton, so `FighterAnimator` scales them by `look.heightScale` to keep scaled rigs'
   feet planted.
+- **D-025 Online play is GGPO-style rollback over WebRTC data channels with copy/paste
+  signalling.** `MatchSim.snapshot()/restore()` copy the whole deterministic state into one
+  flat `Int32Array` (fighter fields discovered from the instance, input-history rings, RNG
+  words, round state; `CharacterRuntime` has no per-match mutable state, events are dropped
+  on restore). `src/net/RollbackSession` (deterministic, DOM-free, lint-guarded like the
+  sim) runs 2 frames of input delay, predicts the remote by repeating its last input, keeps a
+  ring of `maxRollback + 4` snapshots, re-simulates from the first mispredicted frame in the
+  same tick, stalls when more than 8 frames would be predicted, skips a tick every ≥ 12 when
+  it runs a whole frame ahead of the peer (frame-advantage exchange, RTT measured in loop
+  ticks) and exchanges the hash of every 60th *confirmed* frame (repeated with each ping) to
+  flag desyncs. Only frames shown for the first time are presented (`Session.presentStep`),
+  so a rollback never replays audio/VFX; replays record confirmed inputs only. Transport:
+  one RTCPeerConnection with an unordered `maxRetransmits: 0` channel for a 20-byte-header
+  binary format (input batches re-send everything unacknowledged, so loss is repaired by the
+  next packet) and a reliable channel for the JSON lobby (version, picks, host's start).
+  Signalling is non-trickle (codes carry all ICE candidates) and needs no server; `?signal=`
+  selects a registered `Signaller` for a future server. Host = P1, guest = P2, each picks
+  its own fighter; the host picks the stage and rules. Online matches force hold-to-block
+  off on both sides (a per-player assist would change the rules on one peer only), have no
+  pause and no KO slow motion (loop ticks must map 1:1 to sim frames), and end only once the
+  deciding frame is confirmed.
