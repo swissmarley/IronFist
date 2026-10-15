@@ -6,14 +6,17 @@ export interface IronFistGlobal {
   game: {
     getSimFrame(): number;
     input: { enqueueScript(player: number, frames: number[]): void };
-    session: {
+  };
+  app: {
+    currentState: string;
+    currentRunner: { session: {
       sim: {
         fighters: { hp: number; state: number; x: number; z: number; comboHits: number }[];
         frame: number;
         hash(): number;
         round: { phase: number; wins: [number, number]; roundNumber: number; winner: number; lastRoundResult: string };
       };
-    } | null;
+    } } | null;
   };
 }
 
@@ -38,7 +41,7 @@ export function getGlobal(page: Page): Promise<{ ready: boolean; errors: string[
 export function getFighters(page: Page): Promise<{ hp: number; state: number; x: number; z: number; comboHits: number }[]> {
   return page.evaluate(() => {
     const g = (window as unknown as { __ironfist: IronFistGlobal }).__ironfist;
-    return g.game.session!.sim.fighters.map((f) => ({ hp: f.hp, state: f.state, x: f.x, z: f.z, comboHits: f.comboHits }));
+    return g.app.currentRunner!.session.sim.fighters.map((f) => ({ hp: f.hp, state: f.state, x: f.x, z: f.z, comboHits: f.comboHits }));
   });
 }
 
@@ -62,7 +65,7 @@ export function hold(frame: number, n: number): number[] { return new Array(n).f
 export function getRound(page: Page): Promise<{ phase: number; wins: [number, number]; roundNumber: number; winner: number; lastRoundResult: string }> {
   return page.evaluate(() => {
     const g = (window as unknown as { __ironfist: IronFistGlobal }).__ironfist;
-    const r = g.game.session!.sim.round;
+    const r = g.app.currentRunner!.session.sim.round;
     return { phase: r.phase, wins: r.wins, roundNumber: r.roundNumber, winner: r.winner, lastRoundResult: r.lastRoundResult };
   });
 }

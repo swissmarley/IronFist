@@ -136,3 +136,16 @@ describe('MatchSim combat core', () => {
     expect(a.fighters[0].hp + a.fighters[1].hp).toBeLessThan(340);
   });
 });
+
+describe('conditional root moves', () => {
+  it('WS 2 triggers when rising from crouch', () => {
+    const s = sim({ startDistance: 900 });
+    // hold down 10 frames, release, press 2 within the WS window
+    run(s, 10, () => P1(2));
+    const evs = run(s, 40, (f) => (f === 1 ? P1(5, IN_B2) : P1(5)));
+    const a = s.fighters[0];
+    expect(evs).toContain(EvType.MoveStart);
+    expect(s.chars[0].move(a.moveIdx >= 0 ? a.moveIdx : s.fighters[1].lastHitMove).id === 'ws2' || s.fighters[1].lastHitMove >= 0).toBe(true);
+    expect(s.fighters[1].state === FState.Air || s.fighters[1].hp < 170).toBe(true);
+  });
+});

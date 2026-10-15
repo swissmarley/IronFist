@@ -18,6 +18,10 @@ export interface MatchConfig {
   seed: number;
   /** Override both fighters' round HP (tests, handicap). */
   hpOverride?: number;
+  /** Survival: P1 starts the match with this HP (and keeps it between rounds). */
+  survivalHp?: number;
+  /** Training: regenerate HP when idle (default true). */
+  trainingRegen?: boolean;
 }
 
 export const DEFAULT_ARENA: ArenaDef = { id: 'greybox', name: 'Grey Box', halfX: 7000, halfZ: 7000, walls: true };

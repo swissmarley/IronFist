@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { bootGame, getFighters, hold, IN, script, waitFrames } from './helpers';
 
-const URL = '/?mode=training&quality=potato&stage=greybox';
+const URL = '/?mode=training&quality=potato&stage=greybox&p1=greybox&p2=greybox';
 
 test.describe('grey-box training room', () => {
   test('keyboard jab hits, holding back blocks, overlays render', async ({ page }) => {

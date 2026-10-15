@@ -56,8 +56,10 @@ export function findHit(a: FighterState, b: FighterState, rta: CharacterRuntime,
     // highs always whiff on a crouching opponent (genre rule, independent of geometry)
     if (h.level === 'high' && bPose === 'crouch') continue;
     const tracked = h.track?.find((t) => t.frame === a.moveFrame);
+    const groundHit = bPose === 'lying' && (m.properties?.includes('hitsGrounded') ?? false);
     for (const c of tracked ? tracked.capsules : h.capsules) {
       toWorld(c, a.x, a.y, a.z, a.fx, a.fz, wA);
+      if (groundHit) { wA.ay = b.y + 150; wA.by = b.y + 150; } // stomps reach the floor regardless of pose height
       for (const hc of hurts) {
         toWorld(hc, b.x, b.y, b.z, b.fx, b.fz, wB);
         if (capsulesOverlap(wA, wB)) return { hit: h, hitIdx: i, point: contactPoint(wA, wB) };

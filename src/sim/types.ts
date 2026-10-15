@@ -191,10 +191,27 @@ export interface CharacterStats {
   gravity: number;    // mm/frame^2
 }
 
+/** Render-only appearance data (ignored by the sim). */
+export interface CharacterLook {
+  palette: { skin: number; top: number; pants: number; belt: number; gloves: number; boots: number; hair: number };
+  hair: 'none' | 'short' | 'spiky' | 'long' | 'bun';
+  /** Height multiplier (1 = 1.78 m). */
+  heightScale: number;
+  /** Muscle bulk multiplier. */
+  bulk: number;
+  heavy?: boolean;
+  /** Which material each body part uses; omitted parts use the default mapping. */
+  parts?: Partial<Record<string, 'skin' | 'top' | 'pants' | 'belt' | 'gloves' | 'boots' | 'hair'>>;
+}
+
 export interface CharacterDef {
   id: string;
   name: string;
   archetype: string;
+  /** Short bio / fighting-style line for the select screen. */
+  tagline?: string;
+  look?: CharacterLook;
+  /** Character-specific stance idle poses are keyed by stance id (render only). */
   stats: CharacterStats;
   hurtboxes: { stand: CapsuleDef[]; crouch: CapsuleDef[]; air: CapsuleDef[]; lying: CapsuleDef[] };
   moves: MoveDef[];

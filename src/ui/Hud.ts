@@ -28,6 +28,7 @@ export class Hud {
       <div class="hud-combo hud-combo-p1"></div>
       <div class="hud-combo hud-combo-p2"></div>
       <div class="hud-banner"></div>
+      <div class="arcade-ladder"></div>
       <div class="hud-results"><div class="hud-results-title"></div><div class="hud-results-sub">PRESS START TO REMATCH</div></div>`;
     root.appendChild(this.el);
     for (const side of ['p1', 'p2']) {
@@ -41,6 +42,11 @@ export class Hud {
     this.timer = this.el.querySelector('.hud-timer') as HTMLDivElement;
     this.banner = this.el.querySelector('.hud-banner') as HTMLDivElement;
     this.results = this.el.querySelector('.hud-results') as HTMLDivElement;
+  }
+
+  setLadderLabel(text: string): void {
+    const el = this.el.querySelector('.arcade-ladder') as HTMLDivElement | null;
+    if (el) el.textContent = text;
   }
 
   showResults(winner: string, wins: [number, number]): void {

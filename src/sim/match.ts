@@ -49,6 +49,7 @@ export class MatchSim {
     const hp1 = this.config.hpOverride ?? this.chars[1].def.stats.hp;
     f0.resetForRound(-half, 0, FX_ONE, 0, hp0);
     f1.resetForRound(half, 0, -FX_ONE, 0, hp1);
+    if (this.config.survivalHp !== undefined) f0.hp = Math.max(1, Math.min(hp0, this.config.survivalHp));
     this.round.timer = this.config.roundTimeSec > 0 ? this.config.roundTimeSec * 60 : -1;
     this.round.phase = this.config.training ? RoundPhase.Fight : RoundPhase.Intro;
     this.round.phaseFrame = 0;
@@ -127,7 +128,7 @@ export class MatchSim {
     // 6. training-mode regen
     if (this.config.training) {
       for (const f of this.fighters) {
-        if (f.hp < f.maxHp && f.state === FState.Idle && f.comboHits === 0 && f.stateFrame > 60) f.hp = Math.min(f.maxHp, f.hp + 2);
+        if (this.config.trainingRegen !== false && f.hp < f.maxHp && f.state === FState.Idle && f.comboHits === 0 && f.stateFrame > 60) f.hp = Math.min(f.maxHp, f.hp + 2);
         if (f.hp <= 0) f.hp = f.maxHp;
         if (f.ringOut) { f.ringOut = 0; f.x = Math.trunc(f.x / 2); f.z = Math.trunc(f.z / 2); f.y = 0; f.setState(FState.Idle); }
       }

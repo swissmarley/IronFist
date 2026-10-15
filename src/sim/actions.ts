@@ -113,9 +113,16 @@ function resolveMove(f: FighterState, rt: CharacterRuntime, cmdId: string, follo
   return best;
 }
 
-/** Moves with an explicit `cmd` are follow-ups only (their `input` is the full sequence). */
-function isFollowupOnly(m: MoveDef, _rt: CharacterRuntime): boolean {
-  return m.cmd !== undefined && m.cmd !== m.input;
+/**
+ * Moves with an explicit `cmd` that differs from `input` are follow-ups only
+ * (their `input` is the full sequence) unless they declare a non-standing
+ * condition (WS 2, FC 3, SS 2, stance moves): those are root moves whose
+ * display notation carries the condition prefix.
+ */
+export function isFollowupOnly(m: MoveDef, _rt: CharacterRuntime): boolean {
+  if (m.cmd === undefined || m.cmd === m.input) return false;
+  const conds = m.conditions;
+  return conds === undefined || conds.includes('standing');
 }
 
 function resolveSpecial(f: FighterState, rt: CharacterRuntime, cmdId: string, cond: 'lying' | 'throwing'): number {

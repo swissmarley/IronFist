@@ -1,7 +1,6 @@
 import type * as THREE from 'three/webgpu';
 import type { WebGPURenderer } from 'three/webgpu';
-import { PALETTES } from '@/render/rig/RigMaterials';
-import { DEFAULT_STYLE } from '@/render/rig/RigGeometry';
+import { rigOptionsFor } from '@/render/rig/look';
 import { MatchSim } from '@/sim/match';
 import type { ArenaDef, MatchConfig } from '@/sim/config';
 import type { PostPipeline } from '@/render/PostPipeline';
@@ -17,7 +16,7 @@ import { InputDisplay } from '@/debug/InputDisplay';
 import { debugFlags } from '@/debug/DebugFlags';
 import { EvType } from '@/sim/events';
 import { RoundPhase } from '@/sim/match';
-import { IN_START, type InputFrame } from '@/input/InputFrame';
+import type { InputFrame } from '@/input/InputFrame';
 import { TUNING } from '@/sim/config';
 import type { GameAudio } from '@/audio';
 import { VfxManager } from '@/render/vfx/VfxManager';
@@ -56,10 +55,14 @@ export class Session {
   /** Inputs recorded this session (for replay / tests). */
   readonly inputLog: number[] = [];
   private lastInputs: [InputFrame, InputFrame] = [0, 0];
+  /** Inputs consumed by the most recent sim step (for replay recording). */
+  lastInputsUsed: [InputFrame, InputFrame] = [0, 0];
   private slowmoCounter = 0;
   /** Sim steps per loop step during the KO slow-motion phase (1 = every step). */
   koSlowmoDivisor = 3;
-  private prevStart: [boolean, boolean] = [false, false];
+  /** Hook run before each input sample (practice dummy control). */
+  onBeforeSample: (() => void) | null = null;
+  hpRegen = true;
 
   constructor(o: SessionOptions) {
     this.sim = new MatchSim(o.chars, { ...(o.arena && !o.match.arena ? { arena: o.arena } : {}), ...o.match });
@@ -67,8 +70,8 @@ export class Session {
     this.input = o.input;
     this.audio = o.audio ?? null;
     this.views = [
-      new FighterView(o.scene.fighters[0] as THREE.Group, this.sim.chars[0], { palette: PALETTES.karate }),
-      new FighterView(o.scene.fighters[1] as THREE.Group, this.sim.chars[1], { palette: PALETTES.p2, style: { ...DEFAULT_STYLE, hair: 'spiky' } }),
+      new FighterView(o.scene.fighters[0] as THREE.Group, this.sim.chars[0], rigOptionsFor(o.chars[0], 0)),
+      new FighterView(o.scene.fighters[1] as THREE.Group, this.sim.chars[1], rigOptionsFor(o.chars[1], 1)),
     ];
     this.camera = new CameraRig(o.scene.camera);
     this.hitboxes = new HitboxViewer();
@@ -86,35 +89,24 @@ export class Session {
   }
 
   sampleInput(): void {
+    this.onBeforeSample?.();
     const f = this.input.sample();
     this.lastInputs = [f[0] ?? 0, f[1] ?? 0];
   }
 
   step(): void {
     const r = this.sim.round;
-    // Start on the results screen = rematch
-    if (r.phase === RoundPhase.MatchOver) {
-      for (let p = 0; p < 2; p++) {
-        const down = ((this.lastInputs[p] ?? 0) & IN_START) !== 0;
-        if (down && !this.prevStart[p]) { this.sim.rematch(); this.hud.hideResults(); }
-        this.prevStart[p] = down;
-      }
-    } else {
-      this.prevStart = [false, false];
-    }
     // KO slow-motion: advance the sim on every Nth loop step (sim frames stay exact)
     if (r.phase === RoundPhase.KO && r.phaseFrame < TUNING.koSlowmoFrames) {
       this.slowmoCounter = (this.slowmoCounter + 1) % this.koSlowmoDivisor;
       if (this.slowmoCounter !== 0) return;
     } else this.slowmoCounter = 0;
+    this.sim.config.trainingRegen = this.hpRegen;
     this.sim.step(this.lastInputs);
+    this.lastInputsUsed = [this.lastInputs[0], this.lastInputs[1]];
     this.inputLog.push(this.lastInputs[0], this.lastInputs[1]);
     this.inputDisplay.record(this.sim.fighters);
     this.consumeEvents();
-    if (this.sim.round.phase === RoundPhase.MatchOver && this.sim.round.phaseFrame === 0) {
-      const w = this.sim.round.winner;
-      this.hud.showResults(w === 0 || w === 1 ? this.sim.chars[w].def.name : 'DRAW', this.sim.round.wins);
-    }
   }
 
   private consumeEvents(): void {

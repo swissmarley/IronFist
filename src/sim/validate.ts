@@ -74,3 +74,43 @@ function validateMove(def: CharacterDef, m: MoveDef, e: (msg: string) => void): 
   if (m.armour && m.armour[0] > m.armour[1]) e(`${id}: bad armour frames`);
   if (m.conditions?.includes('stance') && !(def.stances ?? []).includes(m.stance ?? '')) e(`${id}: unknown stance ${m.stance}`);
 }
+
+/** Roster requirements for a shipped fighter (SPEC §8). */
+export function validateRoster(def: CharacterDef): string[] {
+  const errors = validateCharacter(def);
+  const e = (msg: string): void => { errors.push(`${def.id}: ${msg}`); };
+  const moves = def.moves;
+  const rootMoves = moves.filter((m) => m.cmd === undefined || m.cmd === m.input || (m.conditions !== undefined && !m.conditions.includes('standing')));
+  if (moves.length < 60) e(`needs at least 60 moves (has ${moves.length})`);
+  if (moves.length > 110) e(`has more than 110 moves (${moves.length})`);
+  if (rootMoves.length < 30) e(`needs at least 30 root (directly triggered) moves (has ${rootMoves.length})`);
+  const throws = moves.filter((m) => m.throw && !m.conditions?.includes('throwing'));
+  if (throws.length < 2) e(`needs at least 2 throws (has ${throws.length})`);
+  const launchers = moves.filter((m) => m.hits.some((h) => ['launch', 'launchHigh', 'launchLow', 'spinLaunch'].includes(h.reaction)));
+  if (launchers.length < 2) e(`needs at least 2 launchers on normal hit (has ${launchers.length})`);
+  if (!moves.some((m) => m.armour)) e('needs a power crush (armour window)');
+  if (!def.tenHit || !moves.some((m) => m.id === def.tenHit)) e('needs a tenHit string root');
+  else {
+    // follow the follow-up chain from the ten-hit root
+    let count = 1;
+    let cur = moves.find((m) => m.id === def.tenHit);
+    const seen = new Set<string>();
+    while (cur && cur.followups && cur.followups.length > 0 && count < 20) {
+      const next = cur.followups[0];
+      if (!next || seen.has(next.moveId)) break;
+      seen.add(next.moveId);
+      cur = moves.find((m) => m.id === next.moveId);
+      count++;
+    }
+    if (count < 10) e(`ten-hit string only chains ${count} moves`);
+  }
+  if (!def.stances || def.stances.length < 1) e('needs at least one stance id');
+  if (!moves.some((m) => m.followups && m.followups.length > 0)) e('needs string follow-ups');
+  if (!moves.some((m) => m.properties?.includes('homing'))) e('needs a homing move');
+  if (!moves.some((m) => m.hits.some((h) => h.level === 'low'))) e('needs low attacks');
+  if (!moves.some((m) => m.conditions?.includes('ws'))) e('needs while-standing moves');
+  if (!moves.some((m) => m.conditions?.includes('crouch'))) e('needs full-crouch moves');
+  if (!moves.some((m) => m.conditions?.includes('lying'))) e('needs floor attacks');
+  if (!def.look) e('needs a look');
+  return errors;
+}
