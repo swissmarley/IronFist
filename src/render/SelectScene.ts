@@ -2,7 +2,7 @@ import * as THREE from 'three/webgpu';
 import type { GreyBoxScene } from './GreyBoxScene';
 import { RigView } from './rig/RigView';
 import { rigOptionsFor } from './rig/look';
-import { buildClipSet } from '@/anim/clips';
+import { buildClipSet, type ClipSet } from '@/anim/clips';
 import { evaluateClip, Pose } from '@/anim/pose';
 import type { CharacterDef } from '@/sim/types';
 
@@ -13,7 +13,8 @@ import type { CharacterDef } from '@/sim/types';
 export class SelectScene {
   private rigs: [RigView | null, RigView | null] = [null, null];
   private ids: [string, string] = ['', ''];
-  private readonly clips = buildClipSet();
+  /** Each slot idles in its own fighter's stance (D-024). */
+  private clips: [ClipSet, ClipSet] = [buildClipSet(), buildClipSet()];
   private readonly pose = new Pose();
   private t = 0;
   private active = false;
@@ -32,6 +33,7 @@ export class SelectScene {
     group.position.set(s === 0 ? -1.35 : 1.35, 0, 0.6);
     this.rigs[s] = rig;
     this.ids[s] = def.id;
+    this.clips[s] = buildClipSet(def.anim);
   }
 
   private clearSlot(s: 0 | 1): void {
@@ -60,12 +62,14 @@ export class SelectScene {
   update(dtMs: number): void {
     if (!this.active) return;
     this.t += dtMs;
-    evaluateClip(this.clips.idle, (this.t / 16.67) % 120, this.pose);
     this.rigs.forEach((rig, i) => {
       if (!rig) return;
+      const idle = (this.clips[i as 0 | 1]).idle;
+      evaluateClip(idle, (this.t / 16.67) % Math.max(1, idle.length), this.pose);
       const g = this.scene.fighters[i] as THREE.Group;
       g.rotation.y = Math.PI * (i === 0 ? 0.08 : -0.08) + Math.sin(this.t * 0.0006 + i) * 0.35;
       rig.applyPose(this.pose);
+      rig.updateSprings(dtMs);
       rig.updateEffects(dtMs, false, false);
     });
   }

@@ -18,6 +18,7 @@ export class FighterView {
   readonly animator: FighterAnimator;
   private yaw = 0;
   private initialised = false;
+  private lastHitstop = 0;
 
   constructor(group: THREE.Group, rt: CharacterRuntime, rigOpts: RigOptions = {}) {
     this.group = group;
@@ -47,11 +48,45 @@ export class FighterView {
 
     const pose = this.animator.update(f, o, alpha, dtMs);
     this.rig.applyPose(pose);
+    this.updateSprings(f, o, x, z, dtMs);
     this.rig.updateEffects(dtMs, f.ko === 1, f.state === FState.Blockstun);
+  }
+
+  /**
+   * Spring chains integrate in world space, so root velocity (walks, dashes,
+   * knockback, juggles) drags them for free. A fresh hit-stop on the victim
+   * flings them away from the attacker; during hit-stop they run slowed so the
+   * whip plays out as the freeze releases.
+   */
+  private updateSprings(f: FighterState, o: FighterState | null, x: number, z: number, dtMs: number): void {
+    if (f.hitstop > this.lastHitstop && isReacting(f.state)) {
+      let dx = -Math.sin(this.yaw), dz = -Math.cos(this.yaw);
+      if (o) {
+        const ax = x - o.x * MM, az = z - o.z * MM;
+        const len = Math.hypot(ax, az);
+        if (len > 1e-3) { dx = ax / len; dz = az / len; }
+      }
+      const blocked = f.state === FState.Blockstun;
+      const s = blocked ? 0.8 : 1.8 + 0.8 * Math.min(2, f.lastReaction);
+      const up = f.state === FState.Air ? 1.8 : blocked ? 0.2 : 0.6;
+      this.rig.springImpulse(dx * s, up, dz * s);
+    }
+    this.lastHitstop = f.hitstop;
+    this.rig.updateSprings(dtMs, f.hitstop > 0 ? 0.3 : 1);
+  }
+
+  /** Snap hair/cloth chains to rest (round resets, rematches). */
+  resetSprings(): void {
+    this.rig.springs.reset();
   }
 
   /** World position of the head joint (for camera focus / VFX). */
   headPosition(out: THREE.Vector3): THREE.Vector3 {
     return this.rig.bonePosition(4, out);
   }
+}
+
+function isReacting(s: FState): boolean {
+  return s === FState.Hitstun || s === FState.Blockstun || s === FState.Air || s === FState.WallSplat
+    || s === FState.Stagger || s === FState.Crumple || s === FState.KO;
 }

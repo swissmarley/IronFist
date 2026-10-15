@@ -140,6 +140,7 @@ export class Game {
     const session = new Session({
       chars, match: config, scene: this.scene, uiRoot: this.opts.uiRoot, debugRoot: this.opts.debugRoot, input: this.input, audio: this.audio,
       maxParticles: this.quality.particlesMax,
+      springSegments: this.quality.springSegments,
       soundCues: this.settings.get().accessibility.soundCues,
       ...(this.scene.stage ? { arena: this.scene.stage.arena } : {}),
     });

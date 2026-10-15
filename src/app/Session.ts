@@ -34,6 +34,8 @@ export interface SessionOptions {
   arena?: ArenaDef;
   /** Accessibility: play a pitched cue when an attack starts (high / mid / low). */
   soundCues?: boolean;
+  /** Spring-bone segment cap per chain from the quality tier. */
+  springSegments?: number;
 }
 
 /**
@@ -76,8 +78,8 @@ export class Session {
     this.input = o.input;
     this.audio = o.audio ?? null;
     this.views = [
-      new FighterView(o.scene.fighters[0] as THREE.Group, this.sim.chars[0], rigOptionsFor(o.chars[0], 0)),
-      new FighterView(o.scene.fighters[1] as THREE.Group, this.sim.chars[1], rigOptionsFor(o.chars[1], 1)),
+      new FighterView(o.scene.fighters[0] as THREE.Group, this.sim.chars[0], rigOptionsFor(o.chars[0], 0, o.springSegments)),
+      new FighterView(o.scene.fighters[1] as THREE.Group, this.sim.chars[1], rigOptionsFor(o.chars[1], 1, o.springSegments)),
     ];
     this.camera = new CameraRig(o.scene.camera);
     this.hitboxes = new HitboxViewer();
@@ -164,7 +166,10 @@ export class Session {
           this.hud.showBanner(label, 1800);
           break;
         }
-        case EvType.RoundStart: if (!this.sim.config.training) this.hud.showBanner(`ROUND ${e.strength}`, 1100, 'FIGHT'); break;
+        case EvType.RoundStart:
+          for (const v of this.views) v.resetSprings();
+          if (!this.sim.config.training) this.hud.showBanner(`ROUND ${e.strength}`, 1100, 'FIGHT');
+          break;
         case EvType.Throw: this.camera.addShake(0.2); break;
         case EvType.ThrowBreak: this.hud.showBanner('ESCAPE', 500); break;
         case EvType.Wall: this.camera.addShake(0.5); this.views[e.a as 0 | 1]?.triggerFlash(2); this.flash = Math.max(this.flash, 0.25); break;

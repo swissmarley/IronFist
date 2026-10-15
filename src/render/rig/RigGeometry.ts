@@ -27,7 +27,7 @@ export const DEFAULT_STYLE: RigStyle = {
   hair: 'short',
 };
 
-function alignToAxis(geo: THREE.BufferGeometry, axis: [number, number, number]): THREE.BufferGeometry {
+export function alignToAxis(geo: THREE.BufferGeometry, axis: [number, number, number]): THREE.BufferGeometry {
   const from = new THREE.Vector3(0, 1, 0);
   const to = new THREE.Vector3(axis[0], axis[1], axis[2]).normalize();
   const q = new THREE.Quaternion().setFromUnitVectors(from, to);
@@ -36,7 +36,7 @@ function alignToAxis(geo: THREE.BufferGeometry, axis: [number, number, number]):
 }
 
 /** Tapered capsule along +Y from 0 to length with radii r0 (joint) and r1 (tip). */
-function taperedCapsule(length: number, r0: number, r1: number, segs = 14): THREE.BufferGeometry {
+export function taperedCapsule(length: number, r0: number, r1: number, segs = 14): THREE.BufferGeometry {
   const pts: THREE.Vector2[] = [];
   const capSegs = 6;
   for (let i = capSegs; i >= 0; i--) {
@@ -58,7 +58,7 @@ function taperedCapsule(length: number, r0: number, r1: number, segs = 14): THRE
   return g;
 }
 
-function ellipsoid(rx: number, ry: number, rz: number, cy: number, cz = 0): THREE.BufferGeometry {
+export function ellipsoid(rx: number, ry: number, rz: number, cy: number, cz = 0): THREE.BufferGeometry {
   const g = new THREE.SphereGeometry(1, 18, 14);
   g.scale(rx, ry, rz);
   g.translate(0, cy, cz);
@@ -139,9 +139,16 @@ export interface RigGeometryResult {
   groups: PartMaterial[];
 }
 
+/** Extra, already-skinned geometry merged into a material slot (spring chains, belt band). */
+export interface ExtraRigPart {
+  slot: PartMaterial;
+  geometry: THREE.BufferGeometry;
+}
+
 /** Build one merged skinned geometry (rigid weights) for the skeleton. */
-export function buildRigGeometry(defs: BoneDef[], style: RigStyle): RigGeometryResult {
+export function buildRigGeometry(defs: BoneDef[], style: RigStyle, extras: readonly ExtraRigPart[] = []): RigGeometryResult {
   const perMaterial: THREE.BufferGeometry[][] = PART_MATERIALS.map(() => []);
+  for (const e of extras) (perMaterial[PART_MATERIALS.indexOf(e.slot)] as THREE.BufferGeometry[]).push(e.geometry);
   // rest-pose world position of every joint (rest rotations are identity)
   const world = restJointPositions(defs);
   defs.forEach((d, boneIdx) => {
@@ -180,7 +187,7 @@ export function restJointPositions(defs: BoneDef[]): [number, number, number][] 
   return out;
 }
 
-function addSkin(g: THREE.BufferGeometry, boneIdx: number): void {
+export function addSkin(g: THREE.BufferGeometry, boneIdx: number): void {
   const n = (g.attributes.position as THREE.BufferAttribute).count;
   const idx = new Uint16Array(n * 4);
   const w = new Float32Array(n * 4);

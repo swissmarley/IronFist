@@ -40,7 +40,27 @@ test.describe('grey-box training room', () => {
     await expect(page.locator('.dbg-framedata')).toContainText('Crouch');
     await page.keyboard.up('KeyS');
     await waitFrames(page, 4);
-    await expect(page).toHaveScreenshot('training-hitboxes.png', { maxDiffPixelRatio: 0.06 });
+    expect(errors).toEqual([]);
+  });
+
+  test('debug overlays render over a deterministic exchange (visual)', async ({ page }) => {
+    const errors = await bootGame(page, URL);
+    // Pause, queue exact inputs and step a fixed number of sim frames, so the pose and
+    // overlays are identical on every run regardless of headless frame rate.
+    await page.evaluate(() => (window as unknown as { __ironfist: { game: { loop: { setPaused(p: boolean): void } } } }).__ironfist.game.loop.setPaused(true));
+    const p1 = [...hold(IN.RIGHT, 30), ...hold(0, 8), IN.B1, IN.B1, ...hold(0, 30), ...hold(IN.DOWN, 14)];
+    await script(page, 0, p1);
+    await script(page, 1, hold(0, p1.length));
+    await page.evaluate((n) => {
+      const loop = (window as unknown as { __ironfist: { game: { loop: { stepOnce(): void } } } }).__ironfist.game.loop;
+      for (let i = 0; i < n; i++) loop.stepOnce();
+    }, p1.length);
+    await page.keyboard.press('F1');
+    await page.keyboard.press('F2');
+    await page.keyboard.press('F4');
+    await expect(page.locator('.dbg-framedata')).toContainText('Crouch');
+    await page.waitForTimeout(1500);
+    await expect(page).toHaveScreenshot('training-hitboxes.png', { maxDiffPixelRatio: 0.03, timeout: 60_000 });
     expect(errors).toEqual([]);
   });
 

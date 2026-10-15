@@ -64,7 +64,10 @@
 - [x] FEEL_CHECKLIST ticked with evidence; stage-boot regression spec over all six stages (e2e/stages.spec.ts)
 - [x] Stage exposure applied before bloom (no costume halos on dark-graded stages)
 - [x] Character balance pass 1 (AI spacing/whiff-punish/throw-reach fixes, faster motion execution, mid-air freeze sim fix, per-character data trims) — all fighters 44–60% at Hard mirror; ladder 86/71/66/64%, 0 stalls
-- [ ] Known visual issues: faint floor shadows under IBL; bright white costumes still near clipping in direct sun; no spring-bone hair/cloth; no facial blendshapes
+- [x] Contact shadows under fighters (faint IBL floor shadows); cloth albedo cap for white costumes
+- [x] Spring-bone hair, belt ends and cloth flaps on every fighter (D-023)
+- [x] Per-character stance on the character-select turntable
+- [ ] Facial blendshapes (not started)
 - [ ] Bug bash + full `pnpm test:all` on the final build
 
 ## Phase 7 — Stretch

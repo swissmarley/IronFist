@@ -89,6 +89,27 @@
   tests stay deterministic. Related rendering rules: stage exposure is applied before bloom
   (so dark-graded stages do not halo bright costumes) and cloth albedo is capped at 0.72
   linear in `RigMaterials` (white gis keep their folds instead of clipping).
+- **D-023 Hair and cloth secondary motion is a render-only Verlet spring-bone layer.** Each
+  fighter gets extra bones appended to its skinned rig (`src/render/rig/SpringRig.ts`)
+  driven by pinned Verlet chains (`src/render/rig/SpringBones.ts`: stiffness pull toward
+  the rigidly-attached rest shape, damping, gravity, segment length within `maxStretch`,
+  push-out from head/chest/hips/thigh capsules, fixed 1/120 s sub-steps, preallocated
+  typed arrays, so no per-frame allocation). Chains integrate in world space, which means
+  root velocity (walks, dashes, knockback, juggles) produces lag with no extra code.
+  `FighterView` flings them away from the attacker when a new hit-stop starts and runs them
+  at 0.3x speed during the freeze, so the whip plays out as the freeze releases. Chains come
+  from `look.springs` when a look has them (optional `SpringLook` field in
+  `src/render/rig/look.ts`). Otherwise `springPresets.ts` derives them from the hair style
+  (long → ponytail, bun → bun tail, spiky → nape flicks, short → nape flick) and the costume
+  (heavy → front/back flaps, bare torso → side cord, long hair → coat tails, else a belt
+  band with knot and two belt ends). A small per-id table adds what the rules cannot infer
+  (Mei-Ling's qipao panels). Every roster fighter gets at least one chain. The sim never
+  sees any of it; dt is wall-clock, and the per-fighter idle breeze phase is derived from
+  the player slot rather than `Math.random`. Spring bones run on every quality tier;
+  `QualitySettings.springSegments` caps segments per chain (potato = 1). The cap is read
+  when a session is built, so an adaptive tier change mid-match applies from the next
+  session. Segments are rigidly skinned, so sharp bends rely on overlapping capsule caps,
+  like the limbs do.
 - **D-024 Stances, intros and wins are render-only pose sets picked by id.** Each
   `CharacterDef` names `anim: { stance, intro, win }` (strings, so src/data stays free of
   `three`); src/anim/stances.ts and src/anim/ceremonies.ts own the pose sets, and a missing

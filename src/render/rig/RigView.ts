@@ -3,11 +3,19 @@ import { HUMANOID, scaleSkeleton, type BoneDef } from '@/anim/skeleton';
 import type { Pose } from '@/anim/pose';
 import { buildBones, buildRigGeometry, DEFAULT_STYLE, type RigStyle } from './RigGeometry';
 import { makeRigMaterials, PALETTES, type Palette } from './RigMaterials';
+import { SpringRig } from './SpringRig';
+import type { SpringSetup } from './springPresets';
 
 export interface RigOptions {
   heightScale?: number;
   style?: RigStyle;
   palette?: Palette;
+  /** Spring chains (hair, belt ends, cloth); none when omitted. */
+  springs?: SpringSetup;
+  /** Per-chain segment cap from the quality tier (potato = 1). */
+  springMaxSegments?: number;
+  /** Deterministic per-fighter phase for the idle breeze (radians). */
+  springPhase?: number;
 }
 
 /**
@@ -20,6 +28,10 @@ export class RigView {
   readonly bones: THREE.Bone[];
   readonly defs: BoneDef[];
   readonly materials: THREE.Material[];
+  readonly springs: SpringRig;
+  private readonly springPhase: number;
+  private springTime = 0;
+  private readonly springUpdate = { timeScale: 1, windX: 0, windZ: 0 };
   private flash = 0;
   private readonly baseColors: THREE.Color[];
   private readonly baseEmissive: THREE.Color[];
@@ -28,10 +40,13 @@ export class RigView {
   constructor(opts: RigOptions = {}) {
     this.defs = scaleSkeleton(HUMANOID, opts.heightScale ?? 1, opts.style?.bulk ?? 1);
     const style = opts.style ?? DEFAULT_STYLE;
-    const { geometry, groups } = buildRigGeometry(this.defs, style);
+    this.springs = new SpringRig(this.defs, opts.springs ?? { chains: [], dressing: {} }, this.defs.length, opts.springMaxSegments);
+    this.springPhase = opts.springPhase ?? 0;
+    const { geometry, groups } = buildRigGeometry(this.defs, style, this.springs.parts);
     this.materials = makeRigMaterials(groups, opts.palette ?? (PALETTES.karate as Palette));
     this.bones = buildBones(this.defs);
-    const skeleton = new THREE.Skeleton(this.bones);
+    this.springs.attach(this.bones);
+    const skeleton = new THREE.Skeleton([...this.bones, ...this.springs.bones]);
     this.mesh = new THREE.SkinnedMesh(geometry, this.materials);
     this.mesh.add(this.bones[0] as THREE.Bone);
     this.mesh.updateMatrixWorld(true);
@@ -45,12 +60,33 @@ export class RigView {
   }
 
   applyPose(pose: Pose): void {
-    for (let i = 0; i < this.bones.length; i++) {
+    for (let i = 0; i < this.defs.length; i++) {
       const b = this.bones[i] as THREE.Bone;
       const d = this.defs[i] as BoneDef;
       b.quaternion.copy(pose.rots[i] as THREE.Quaternion);
       if (i === 0) b.position.set(d.offset[0] + pose.root.x, d.offset[1] + pose.root.y, d.offset[2] + pose.root.z);
     }
+  }
+
+  /**
+   * Step the spring chains after `applyPose` (and after the parent group's
+   * transform is set). `timeScale` < 1 slows them during hit-stop.
+   */
+  updateSprings(dtMs: number, timeScale = 1): void {
+    if (this.springs.chains.length === 0) return;
+    this.springTime += dtMs;
+    const t = this.springTime * 0.001;
+    const u = this.springUpdate;
+    u.timeScale = timeScale;
+    u.windX = 0.35 * Math.sin(t * 1.1 + this.springPhase);
+    u.windZ = 0.25 * Math.sin(t * 1.7 + this.springPhase * 1.3);
+    this.group.updateWorldMatrix(true, true);
+    this.springs.update(dtMs, this.bones, u);
+  }
+
+  /** Fling the spring chains (world-space m/s), e.g. on a hit. */
+  springImpulse(x: number, y: number, z: number): void {
+    this.springs.impulse(x, y, z);
   }
 
   triggerFlash(strength: number): void {
