@@ -13,7 +13,8 @@ import { InputDisplay } from '@/debug/InputDisplay';
 import { debugFlags } from '@/debug/DebugFlags';
 import { EvType } from '@/sim/events';
 import { RoundPhase } from '@/sim/match';
-import type { InputFrame } from '@/input/InputFrame';
+import { IN_START, type InputFrame } from '@/input/InputFrame';
+import { TUNING } from '@/sim/config';
 
 export interface SessionOptions {
   chars: [CharacterDef, CharacterDef];
@@ -42,6 +43,10 @@ export class Session {
   /** Inputs recorded this session (for replay / tests). */
   readonly inputLog: number[] = [];
   private lastInputs: [InputFrame, InputFrame] = [0, 0];
+  private slowmoCounter = 0;
+  /** Sim steps per loop step during the KO slow-motion phase (1 = every step). */
+  koSlowmoDivisor = 3;
+  private prevStart: [boolean, boolean] = [false, false];
 
   constructor(o: SessionOptions) {
     this.sim = new MatchSim(o.chars, o.match);
@@ -55,6 +60,7 @@ export class Session {
     this.hud.setNames(o.chars[0].name, o.chars[1].name);
     this.frameData = new FrameDataOverlay(o.debugRoot);
     this.inputDisplay = new InputDisplay(o.debugRoot);
+    this.consumeEvents(); // the constructor's RoundStart
   }
 
   sampleInput(): void {
@@ -63,10 +69,30 @@ export class Session {
   }
 
   step(): void {
+    const r = this.sim.round;
+    // Start on the results screen = rematch
+    if (r.phase === RoundPhase.MatchOver) {
+      for (let p = 0; p < 2; p++) {
+        const down = ((this.lastInputs[p] ?? 0) & IN_START) !== 0;
+        if (down && !this.prevStart[p]) { this.sim.rematch(); this.hud.hideResults(); }
+        this.prevStart[p] = down;
+      }
+    } else {
+      this.prevStart = [false, false];
+    }
+    // KO slow-motion: advance the sim on every Nth loop step (sim frames stay exact)
+    if (r.phase === RoundPhase.KO && r.phaseFrame < TUNING.koSlowmoFrames) {
+      this.slowmoCounter = (this.slowmoCounter + 1) % this.koSlowmoDivisor;
+      if (this.slowmoCounter !== 0) return;
+    } else this.slowmoCounter = 0;
     this.sim.step(this.lastInputs);
     this.inputLog.push(this.lastInputs[0], this.lastInputs[1]);
     this.inputDisplay.record(this.sim.fighters);
     this.consumeEvents();
+    if (this.sim.round.phase === RoundPhase.MatchOver && this.sim.round.phaseFrame === 0) {
+      const w = this.sim.round.winner;
+      this.hud.showResults(w === 0 || w === 1 ? this.sim.chars[w].def.name : 'DRAW', this.sim.round.wins);
+    }
   }
 
   private consumeEvents(): void {
@@ -92,8 +118,18 @@ export class Session {
           break;
         }
         case EvType.Armour: this.camera.addShake(0.2); break;
-        case EvType.KO: this.camera.addShake(0.6); this.camera.addPunch(0.8); this.hud.showBanner('K.O.', 1500); break;
-        case EvType.RoundStart: if (!this.sim.config.training) this.hud.showBanner(`ROUND ${e.strength}`, 1200); break;
+        case EvType.KO: {
+          this.camera.addShake(0.6); this.camera.addPunch(0.8);
+          const label = e.strength === 1 ? 'TIME OVER' : e.strength === 2 ? 'RING OUT' : this.sim.round.lastRoundResult === 'perfect' ? 'PERFECT' : this.sim.round.lastRoundResult === 'double' ? 'DOUBLE K.O.' : 'K.O.';
+          this.hud.showBanner(label, 1800);
+          break;
+        }
+        case EvType.RoundStart: if (!this.sim.config.training) this.hud.showBanner(`ROUND ${e.strength}`, 1100, 'FIGHT'); break;
+        case EvType.Throw: this.camera.addShake(0.2); break;
+        case EvType.ThrowBreak: this.hud.showBanner('ESCAPE', 500); break;
+        case EvType.Wall: this.camera.addShake(0.5); this.views[e.a as 0 | 1]?.triggerFlash(2); break;
+        case EvType.Parry: this.hud.showBanner('PARRY', 500); break;
+        case EvType.RingOut: this.camera.addShake(0.4); break;
         default: break;
       }
     }

@@ -7,7 +7,12 @@ export interface IronFistGlobal {
     getSimFrame(): number;
     input: { enqueueScript(player: number, frames: number[]): void };
     session: {
-      sim: { fighters: { hp: number; state: number; x: number; z: number; comboHits: number }[]; frame: number; hash(): number };
+      sim: {
+        fighters: { hp: number; state: number; x: number; z: number; comboHits: number }[];
+        frame: number;
+        hash(): number;
+        round: { phase: number; wins: [number, number]; roundNumber: number; winner: number; lastRoundResult: string };
+      };
     } | null;
   };
 }
@@ -53,3 +58,11 @@ export async function script(page: Page, player: number, frames: number[]): Prom
 /** Absolute InputFrame bits (mirrors src/input/InputFrame.ts). */
 export const IN = { LEFT: 1, RIGHT: 2, UP: 4, DOWN: 8, B1: 16, B2: 32, B3: 64, B4: 128 } as const;
 export function hold(frame: number, n: number): number[] { return new Array(n).fill(frame); }
+
+export function getRound(page: Page): Promise<{ phase: number; wins: [number, number]; roundNumber: number; winner: number; lastRoundResult: string }> {
+  return page.evaluate(() => {
+    const g = (window as unknown as { __ironfist: IronFistGlobal }).__ironfist;
+    const r = g.game.session!.sim.round;
+    return { phase: r.phase, wins: r.wins, roundNumber: r.roundNumber, winner: r.winner, lastRoundResult: r.lastRoundResult };
+  });
+}

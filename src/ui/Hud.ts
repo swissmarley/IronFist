@@ -13,6 +13,8 @@ export class Hud {
   private trailValue = [1, 1];
   private banner: HTMLDivElement;
   private bannerTimer = 0;
+  private bannerNext: string | null = null;
+  private results: HTMLDivElement;
 
   constructor(root: HTMLElement) {
     this.el = document.createElement('div');
@@ -25,7 +27,8 @@ export class Hud {
       </div>
       <div class="hud-combo hud-combo-p1"></div>
       <div class="hud-combo hud-combo-p2"></div>
-      <div class="hud-banner"></div>`;
+      <div class="hud-banner"></div>
+      <div class="hud-results"><div class="hud-results-title"></div><div class="hud-results-sub">PRESS START TO REMATCH</div></div>`;
     root.appendChild(this.el);
     for (const side of ['p1', 'p2']) {
       const s = this.el.querySelector(`.hud-${side}`) as HTMLDivElement;
@@ -37,6 +40,16 @@ export class Hud {
     }
     this.timer = this.el.querySelector('.hud-timer') as HTMLDivElement;
     this.banner = this.el.querySelector('.hud-banner') as HTMLDivElement;
+    this.results = this.el.querySelector('.hud-results') as HTMLDivElement;
+  }
+
+  showResults(winner: string, wins: [number, number]): void {
+    (this.results.querySelector('.hud-results-title') as HTMLDivElement).textContent = `${winner} WINS  ${wins[0]}–${wins[1]}`;
+    this.results.classList.add('show');
+  }
+
+  hideResults(): void {
+    this.results.classList.remove('show');
   }
 
   setNames(a: string, b: string): void {
@@ -44,10 +57,11 @@ export class Hud {
     (this.names[1] as HTMLDivElement).textContent = b;
   }
 
-  showBanner(text: string, ms = 1200): void {
+  showBanner(text: string, ms = 1200, next: string | null = null): void {
     this.banner.textContent = text;
     this.banner.classList.add('show');
     this.bannerTimer = ms;
+    this.bannerNext = next;
   }
 
   update(sim: MatchSim, dtMs: number): void {
@@ -75,7 +89,10 @@ export class Hud {
     this.timer.textContent = sim.config.training ? '∞' : r.timer < 0 ? '∞' : String(Math.ceil(r.timer / 60));
     if (this.bannerTimer > 0) {
       this.bannerTimer -= dtMs;
-      if (this.bannerTimer <= 0) this.banner.classList.remove('show');
+      if (this.bannerTimer <= 0) {
+        this.banner.classList.remove('show');
+        if (this.bannerNext) { const n = this.bannerNext; this.bannerNext = null; setTimeout(() => this.showBanner(n, 700), 120); }
+      }
     }
     this.el.classList.toggle('hud-ko', r.phase === RoundPhase.KO);
   }

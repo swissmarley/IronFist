@@ -39,7 +39,21 @@ function validateMove(def: CharacterDef, m: MoveDef, e: (msg: string) => void): 
   const id = m.id;
   if (!Number.isInteger(m.total) || m.total <= 0) e(`${id}: total must be a positive integer`);
   try { parseNotation(m.cmd ?? m.input); } catch (err) { e(`${id}: bad notation (${String(err)})`); }
-  if (m.hits.length === 0 && !m.throw) e(`${id}: move has no hits and is not a throw`);
+  if (m.hits.length === 0 && !m.throw && !m.parry) e(`${id}: move has no hits and is not a throw or parry`);
+  if (m.throw) {
+    const t = m.throw;
+    if (t.grabFrame < 1 || t.grabFrame >= m.total) e(`${id}: throw grabFrame must be inside the move`);
+    if (t.duration <= 0 || t.breakWindow < 0 || t.breakWindow > t.duration) e(`${id}: bad throw timing`);
+    if (t.damage <= 0 || t.range <= 0) e(`${id}: throw needs damage and range`);
+    if (![1, 2, 12].includes(t.breakButton)) e(`${id}: throw breakButton must be 1, 2 or 12`);
+    for (const c of t.chain ?? []) {
+      if (!def.moves.some((x) => x.id === c.moveId && x.throw && x.conditions?.includes('throwing'))) e(`${id}: chain throw ${c.moveId} must be a throw with condition 'throwing'`);
+    }
+  }
+  if (m.parry) {
+    if (m.parry.frames[0] > m.parry.frames[1] || m.parry.frames[1] >= m.total) e(`${id}: bad parry frames`);
+    if (m.parry.levels.length === 0) e(`${id}: parry needs levels`);
+  }
   for (const h of m.hits) {
     if (!LEVELS.has(h.level)) e(`${id}: bad level ${h.level}`);
     const [s, en] = h.frames;

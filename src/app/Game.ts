@@ -19,6 +19,10 @@ export interface GameOptions {
   mode?: string;
   /** Initial quality tier override. */
   quality?: string;
+  /** Round HP override (tests). */
+  hp?: number;
+  /** Open-edge arena for ring-outs. */
+  ringout?: boolean;
 }
 
 /** Application root. Owns the renderer, loop, input and the active session. */
@@ -66,7 +70,11 @@ export class Game {
     const training = mode !== 'versus';
     this.session = new Session({
       chars: [GREYBOX, GREYBOX],
-      match: { training, roundsToWin: 2, roundTimeSec: 60 },
+      match: {
+        training, roundsToWin: 2, roundTimeSec: 60,
+        ...(this.opts.hp ? { hpOverride: this.opts.hp } : {}),
+        ...(this.opts.ringout ? { arena: { id: 'open', name: 'Open Edge', halfX: 4000, halfZ: 4000, walls: false } } : {}),
+      },
       scene: this.scene,
       uiRoot: this.opts.uiRoot,
       debugRoot: this.opts.debugRoot,

@@ -20,7 +20,7 @@ export type MoveProperty =
   | 'hitsGrounded' | 'unblockable' | 'throw' | 'jumpAttack'
   | 'justFrame' | 'parry' | 'chainThrow' | 'tenHit';
 
-export type MoveCondition = 'standing' | 'crouch' | 'ws' | 'air' | 'ss' | 'bt' | 'run' | 'stance';
+export type MoveCondition = 'standing' | 'crouch' | 'ws' | 'air' | 'ss' | 'bt' | 'run' | 'stance' | 'lying' | 'throwing';
 
 export interface CapsuleDef {
   /** Local-space endpoints in mm: x = fighter right, y = up, z = toward facing. */
@@ -89,6 +89,16 @@ export interface ThrowDef {
   /** Total frames of the throw animation (victim released at the end). */
   duration: number;
   damage: number;
+  /** Move frame on which the grab connects (the throw's startup). */
+  grabFrame: number;
+  /** Frame (relative to the grab) on which damage is applied. Defaults to 60% of duration. */
+  damageFrame?: number;
+  /** Grabs crouching opponents too (default: whiffs on crouchers like a high). */
+  grabsCrouching?: boolean;
+  /** Grabs lying opponents (ground throw). */
+  grabsLying?: boolean;
+  /** Frames of disadvantage for the thrower when the throw is broken (default 6). */
+  breakRecovery?: number;
   /** Victim ends up: 'knockdown' faceUp, 'faceDown', 'standing' (resets neutral). */
   result: 'knockdown' | 'faceDown' | 'standing' | 'backTurned';
   /** Where the victim is placed relative to the thrower at the end (mm, forward axis). */
@@ -134,6 +144,8 @@ export interface MoveDef {
   buffer?: number;
   /** Fully recoverable while in the air at `landFrame` (jump attacks). */
   landFrame?: number;
+  /** Parry window: incoming attacks of these levels are parried during the frames. */
+  parry?: { frames: [number, number]; levels: HitLevel[]; stagger: number };
 }
 
 export interface CharacterStats {

@@ -39,7 +39,7 @@ export function startSidestep(f: FighterState, rt: CharacterRuntime, up: boolean
   f.sx = v.x; f.sz = v.z;
   f.setState(FState.Sidestep, rt.def.stats.sidestepFrames);
   f.crouching = 0;
-  f.armourHits = sideIsStrong(f, rt, v.x, v.z) ? 1 : 0; // reuse field as "strong side" flag during a step
+  f.stepStrong = sideIsStrong(f, rt, v.x, v.z) ? 1 : 0;
   ev.push(EvType.Step, f.idx, -1, f.x, f.y, f.z, up ? 1 : 0);
 }
 
@@ -126,15 +126,15 @@ export function stepLocomotion(f: FighterState, rt: CharacterRuntime, o: Fighter
     case FState.Sidestep: {
       const t = f.stateFrame;
       let dist = s.sidestepDist;
-      if (!f.armourHits) dist = ipct(dist, s.sidestepWeakScale);
+      if (!f.stepStrong) dist = ipct(dist, s.sidestepWeakScale);
       // ease-out: front-loaded movement
       const per = Math.trunc((dist * 2 * (s.sidestepFrames - t)) / (s.sidestepFrames * (s.sidestepFrames + 1)));
       f.x += Math.trunc((f.sx * per) / FX_ONE);
       f.z += Math.trunc((f.sz * per) / FX_ONE);
       if (f.stateFrame >= f.stateTotal - 1) {
         const stillHeld = (isUp(d) && f.sx !== 0 && sameSide(f, true)) || (isDown(d) && sameSide(f, false));
-        if (stillHeld) { f.setState(FState.Sidewalk, 0); f.armourHits = 0; }
-        else { faceOpponent(f, o); f.setState(FState.Idle); f.armourHits = 0; }
+        if (stillHeld) { f.setState(FState.Sidewalk, 0); }
+        else { faceOpponent(f, o); f.setState(FState.Idle); }
       }
       break;
     }
@@ -183,21 +183,24 @@ function sameSide(f: FighterState, up: boolean): boolean {
 }
 
 /** Apply hit pushback velocity, then clamp to the arena. */
-export function applyPushAndBounds(f: FighterState, arena: ArenaDef): void {
-  if (f.pushFrames > 0) {
+export function applyPushAndBounds(f: FighterState, arena: ArenaDef, applyPush = true): void {
+  if (applyPush && f.pushFrames > 0) {
     f.x += f.pushX; f.z += f.pushZ;
     f.pushFrames--;
     // decay
     f.pushX -= Math.trunc(f.pushX / 4); f.pushZ -= Math.trunc(f.pushZ / 4);
     if (f.pushFrames === 0) { f.pushX = 0; f.pushZ = 0; }
   }
-  if (arena.walls) {
+  // Walls clamp everyone; open edges clamp only fighters who are on their feet
+  // (airborne / knocked-down fighters can leave the floor = ring-out).
+  const grounded = !f.isAirborne() && f.state !== FState.Lying && f.state !== FState.Thrown && f.pushFrames === 0;
+  if (arena.walls || grounded) {
     let touched = 0;
     if (f.x < -arena.halfX) { f.x = -arena.halfX; touched = 1; }
     if (f.x > arena.halfX) { f.x = arena.halfX; touched = 1; }
     if (f.z < -arena.halfZ) { f.z = -arena.halfZ; touched = 1; }
     if (f.z > arena.halfZ) { f.z = arena.halfZ; touched = 1; }
-    f.wallTouch = touched;
+    f.wallTouch = arena.walls ? touched : 0;
   }
 }
 

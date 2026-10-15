@@ -23,14 +23,14 @@
 - [x] 2P grey-box playable in training room (keyboard + scripted-input E2E)
 
 ## Phase 2 — Full move system
-- [ ] Juggles, gravity, scaling, bound/screw
-- [ ] Throws + breaks, command throws
-- [ ] Crush system, power crush, parry
-- [ ] Walls: splat/bounce, ring-out
-- [ ] Knockdown/oki/tech-roll/get-up
-- [ ] Counter hits
-- [ ] Round/match flow, timer, KO rules
-- [ ] Replay determinism test
+- [x] Juggles with integer gravity, lift decay, combo scaling, bound (one per combo) and screw
+- [x] Throws (1+3, 2+4, d/f+1+2, f,f+1+3 dash throw), three-way breaks, chain-throw hook, ground/crouch grab flags
+- [x] Crush system, power-crush armour, parry
+- [x] Walls: splat (with extra wall hits), wall bounce, open-edge ring-out
+- [x] Knockdown/oki: tech roll, stay down, kip-up, roll back/forward, floor attacks, ground hits
+- [x] Counter hits (bonus damage, CH reactions)
+- [x] Round/match flow: intro, timer, KO/time/double/perfect/ring-out, slow-mo KO, results, rematch
+- [x] Replay module (record / verify / serialise) + determinism tests
 
 ## Phase 3 — First fighter at final quality
 - [ ] Rigged fighter + animation set

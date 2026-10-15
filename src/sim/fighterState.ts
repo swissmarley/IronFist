@@ -5,12 +5,12 @@ import { InputHistory } from './commands';
 export enum FState {
   Idle = 0, Walk = 1, Crouch = 2, Jump = 3, Dash = 4, Backdash = 5, Sidestep = 6, Sidewalk = 7,
   CrouchDash = 8, Run = 9, Attack = 10, Hitstun = 11, Blockstun = 12, Air = 13, Lying = 14,
-  Getup = 15, Throw = 16, Thrown = 17, KO = 18, Intro = 19, Win = 20, Landing = 21, Stagger = 22, Crumple = 23,
+  Getup = 15, Throw = 16, Thrown = 17, KO = 18, Intro = 19, Win = 20, Landing = 21, Stagger = 22, Crumple = 23, WallSplat = 24, Roll = 25,
 }
 
 export const STATE_NAMES: readonly string[] = [
   'Idle', 'Walk', 'Crouch', 'Jump', 'Dash', 'Backdash', 'Sidestep', 'Sidewalk', 'CrouchDash', 'Run',
-  'Attack', 'Hitstun', 'Blockstun', 'Air', 'Lying', 'Getup', 'Throw', 'Thrown', 'KO', 'Intro', 'Win', 'Landing', 'Stagger', 'Crumple',
+  'Attack', 'Hitstun', 'Blockstun', 'Air', 'Lying', 'Getup', 'Throw', 'Thrown', 'KO', 'Intro', 'Win', 'Landing', 'Stagger', 'Crumple', 'WallSplat', 'Roll',
 ];
 
 /**
@@ -68,6 +68,14 @@ export class FighterState {
   throwFrame = 0;
   throwBreakWindow = 0;
   throwMove = -1;
+  // oki variants: 0 stand, 1 kip-up, 2 roll back, 3 roll side, 4 tech roll, 5 roll forward
+  getupKind = 0;
+  stepStrong = 0;
+  wallPending = 0;
+  wallHits = 0;
+  throwBroken = 0;
+  ringOut = 0;
+  parriedBy = -1;
   // stance
   stanceIdx = 0;
   // misc flags
@@ -102,6 +110,7 @@ export class FighterState {
     this.lyingFrames = 0; this.faceDown = 0; this.techWindow = 0; this.wallTouch = 0;
     this.throwPartner = -1; this.throwFrame = 0; this.throwBreakWindow = 0; this.throwMove = -1;
     this.stanceIdx = 0; this.ko = 0; this.counterable = 0; this.armourHits = 0;
+    this.getupKind = 0; this.stepStrong = 0; this.wallPending = 0; this.wallHits = 0; this.throwBroken = 0; this.ringOut = 0; this.parriedBy = -1;
     this.input.clear();
     this.dir = 5; this.buttons = 0;
   }
@@ -125,7 +134,19 @@ export class FighterState {
   }
 
   isAirborne(): boolean {
-    return this.state === FState.Air || this.state === FState.Jump || this.y > 0;
+    return this.state === FState.Air || this.state === FState.Jump || this.state === FState.WallSplat || this.y > 0;
+  }
+
+  /** True when the fighter can be grabbed by a (non-ground) throw. */
+  isThrowable(): boolean {
+    switch (this.state) {
+      case FState.Idle: case FState.Walk: case FState.Crouch: case FState.Dash: case FState.Run: case FState.Backdash:
+      case FState.Sidestep: case FState.Sidewalk: case FState.CrouchDash: case FState.Attack: case FState.Blockstun:
+      case FState.Landing: case FState.Getup: case FState.Stagger:
+        return this.y <= 0;
+      default:
+        return false;
+    }
   }
 
   isGroundedLying(): boolean {
@@ -142,6 +163,7 @@ export class FighterState {
       .int(this.comboHits).int(this.comboDamage).int(this.juggleLift).int(this.boundUsed).int(this.screwUsed)
       .int(this.lastHitMove).int(this.lastReaction).int(this.lyingFrames).int(this.faceDown).int(this.techWindow)
       .int(this.wallTouch).int(this.throwPartner).int(this.throwFrame).int(this.throwBreakWindow).int(this.throwMove)
-      .int(this.stanceIdx).int(this.ko).int(this.counterable).int(this.armourHits).int(this.dir).int(this.buttons);
+      .int(this.stanceIdx).int(this.ko).int(this.counterable).int(this.armourHits).int(this.dir).int(this.buttons)
+      .int(this.getupKind).int(this.stepStrong).int(this.wallPending).int(this.wallHits).int(this.throwBroken).int(this.ringOut).int(this.parriedBy);
   }
 }

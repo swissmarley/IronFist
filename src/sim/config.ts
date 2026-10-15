@@ -16,6 +16,8 @@ export interface MatchConfig {
   /** Training mode: no rounds, hp regenerates when idle. */
   training: boolean;
   seed: number;
+  /** Override both fighters' round HP (tests, handicap). */
+  hpOverride?: number;
 }
 
 export const DEFAULT_ARENA: ArenaDef = { id: 'greybox', name: 'Grey Box', halfX: 7000, halfZ: 7000, walls: true };

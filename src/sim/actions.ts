@@ -38,6 +38,12 @@ function conditionsMet(f: FighterState, m: MoveDef, rt: CharacterRuntime): boole
         break;
       case 'bt':
         return false;
+      case 'lying':
+        if (f.state !== FState.Lying || f.lyingFrames < 4) return false;
+        break;
+      case 'throwing':
+        if (f.state !== FState.Throw) return false;
+        break;
       case 'run':
         if (f.state !== FState.Run) return false;
         break;
@@ -112,6 +118,38 @@ function isFollowupOnly(m: MoveDef, _rt: CharacterRuntime): boolean {
   return m.cmd !== undefined && m.cmd !== m.input;
 }
 
+function resolveSpecial(f: FighterState, rt: CharacterRuntime, cmdId: string, cond: 'lying' | 'throwing'): number {
+  const first = rt.moveIndex.get(cmdId.slice(4));
+  if (first === undefined) return -1;
+  const notation = rt.move(first).cmd ?? rt.move(first).input;
+  for (const idx of rt.movesForCommand(notation)) {
+    const m = rt.move(idx);
+    if (!m.conditions?.includes(cond)) continue;
+    if (cond === 'throwing') {
+      // must be a declared chain follow-up of the current throw within its window
+      const cur = f.throwMove >= 0 ? rt.move(f.throwMove).throw : undefined;
+      const link = cur?.chain?.find((c) => c.moveId === m.id);
+      if (!link || f.throwFrame < link.windowStart || f.throwFrame > link.windowEnd) continue;
+    }
+    if (!conditionsMet(f, m, rt)) continue;
+    return idx;
+  }
+  return -1;
+}
+
+/** Switch the current throw into a chain follow-up (victim stays grabbed, new break window). */
+function startChainThrow(f: FighterState, o: FighterState, rt: CharacterRuntime, idx: number, ev: EventQueue): void {
+  const t = rt.move(idx).throw;
+  if (!t || o.throwPartner !== f.idx) return;
+  f.throwMove = idx;
+  f.throwFrame = 0;
+  f.stateTotal = t.duration;
+  o.throwFrame = 0;
+  o.throwBreakWindow = t.breakWindow;
+  o.stateTotal = t.duration;
+  ev.push(EvType.Throw, f.idx, o.idx, o.x, 1200, o.z, 2, idx);
+}
+
 /**
  * Process commands and movement inputs for one fighter on this frame.
  * Must run after ingestInput and before locomotion.
@@ -121,19 +159,39 @@ export function processCommands(f: FighterState, o: FighterState, rt: CharacterR
   const matches = rt.interpreter.match(f.input, scratchMatches);
   const actionable = f.isActionable();
 
+  // Floor attacks and chain throws: special states where only matching moves may start.
+  if (f.state === FState.Lying || f.state === FState.Throw) {
+    for (const m of matches) {
+      if (!m.id.startsWith('cmd:')) continue;
+      const idx = resolveSpecial(f, rt, m.id, f.state === FState.Lying ? 'lying' : 'throwing');
+      if (idx >= 0) {
+        if (f.state === FState.Throw) startChainThrow(f, o, rt, idx, ev); else startMove(f, o, rt, idx, ev, m.justFrame);
+        return;
+      }
+    }
+    return;
+  }
+
   // 1. Attack commands (new moves and follow-ups), with buffering.
   for (const m of matches) {
     if (!m.id.startsWith('cmd:')) continue;
     const inMove = f.state === FState.Attack;
-    const idx = resolveMove(f, rt, m.id, inMove);
-    if (idx < 0) continue;
-    if (inMove) {
+    let idx = resolveMove(f, rt, m.id, inMove);
+    if (inMove && idx >= 0) {
       const cur = rt.move(f.moveIdx);
       const fu = cur.followups?.find((x) => rt.moveIndex.get(x.moveId) === idx);
       if (fu && f.moveFrame >= fu.cancelFrame) { startMove(f, o, rt, idx, ev, m.justFrame); return; }
       f.pendingMove = idx; f.pendingFrame = frame; f.pendingJF = m.justFrame ? 1 : 0;
       return;
     }
+    if (inMove) {
+      // not a follow-up: buffer it as a root move for when the current move recovers
+      idx = resolveMove(f, rt, m.id, false);
+      if (idx < 0) continue;
+      f.pendingMove = idx; f.pendingFrame = frame; f.pendingJF = m.justFrame ? 1 : 0;
+      return;
+    }
+    if (idx < 0) continue;
     if (actionable || f.state === FState.Landing) {
       if (actionable) { startMove(f, o, rt, idx, ev, m.justFrame); return; }
     }
@@ -192,7 +250,7 @@ export function processCommands(f: FighterState, o: FighterState, rt: CharacterR
       f.downHold = 1;
     } else if (f.state === FState.Crouch) f.downHold++;
   } else if (f.state === FState.Crouch) {
-    const tapped = f.downHold <= TUNING.tapWindow;
+    const tapped = f.downHold > 0 && f.downHold <= TUNING.tapWindow;
     leaveCrouch(f);
     if (tapped) startSidestep(f, rt, false, ev);
   }

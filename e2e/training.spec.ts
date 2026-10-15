@@ -21,10 +21,12 @@ test.describe('grey-box training room', () => {
     // P2 holds back (ArrowRight = away from P1); P1 jabs again -> blocked
     await page.keyboard.down('ArrowRight');
     await waitFrames(page, 3);
+    const hpBeforeBlock = (await getFighters(page))[1]!.hp;
     await page.keyboard.press('KeyU', { delay: 60 });
     await waitFrames(page, 24);
     f = await getFighters(page);
-    expect(f[1]!.hp).toBe(hpAfterHit);
+    expect(f[1]!.hp).toBeGreaterThanOrEqual(hpBeforeBlock); // blocked: no damage (training regen may add)
+    expect(hpAfterHit).toBeLessThan(170);
     await page.keyboard.up('ArrowRight');
     await page.keyboard.press('F1');
     await page.keyboard.press('F2');

@@ -1,7 +1,7 @@
 import { FX_ONE, ipct } from '@/core/fixed';
 import { isDown } from '@/input/InputFrame';
 import { capsulesOverlap, contactPoint, makeWCapsule, toWorld, type WCapsule } from './collision';
-import { TUNING } from './config';
+import { TUNING, type ArenaDef } from './config';
 import { FighterState, FState } from './fighterState';
 import type { CharacterRuntime } from './character';
 import { EvType, type EventQueue } from './events';
@@ -122,6 +122,13 @@ function crushes(b: FighterState, rtb: CharacterRuntime, level: HitLevel): boole
   return false;
 }
 
+function parries(b: FighterState, rtb: CharacterRuntime, level: HitLevel): boolean {
+  if (b.state !== FState.Attack || b.moveIdx < 0) return false;
+  const p = rtb.move(b.moveIdx).parry;
+  if (!p) return false;
+  return b.moveFrame >= p.frames[0] && b.moveFrame <= p.frames[1] && p.levels.includes(level);
+}
+
 function armoured(b: FighterState, rtb: CharacterRuntime, level: HitLevel): boolean {
   if (b.state !== FState.Attack || b.moveIdx < 0) return false;
   const m = rtb.move(b.moveIdx);
@@ -137,6 +144,24 @@ export function isCounterable(b: FighterState, rtb: CharacterRuntime): boolean {
 
 export interface ResolveOptions {
   holdToBlock: [boolean, boolean];
+  arena: ArenaDef;
+}
+
+/** Distance (mm) from a point to the nearest wall; Infinity-like for open arenas. */
+export function wallDistance(x: number, z: number, arena: ArenaDef): number {
+  if (!arena.walls) return 1 << 30;
+  return Math.min(arena.halfX - Math.abs(x), arena.halfZ - Math.abs(z));
+}
+
+/** Lift for an airborne defender hit by `h` before juggle decay. */
+function baseAirLift(h: HitDef): number {
+  if (h.airLift !== undefined) return h.airLift;
+  if (h.launchVy !== undefined) return Math.trunc(h.launchVy / 2);
+  switch (reactionStrength(h.reaction)) {
+    case 0: return 34;
+    case 1: return 42;
+    default: return 50;
+  }
 }
 
 /** Outcome kinds for one attacker's hit check on a frame. */
@@ -170,7 +195,18 @@ export function applyHit(
   a.hitMask |= 1 << group;
   const [px, py, pz] = r.point;
 
-  // crush / armour
+  // parry / crush / armour
+  if (parries(b, rtb, h.level)) {
+    const pm = rtb.move(b.moveIdx);
+    const stagger = pm.parry?.stagger ?? 20;
+    a.setState(FState.Stagger, stagger);
+    a.stunFrames = stagger;
+    a.parriedBy = b.idx;
+    a.hitstop = 8; b.hitstop = 8;
+    b.setState(FState.Idle);
+    ev.push(EvType.Parry, b.idx, a.idx, px, py, pz, 1, a.moveIdx);
+    return Outcome.Whiff;
+  }
   if (crushes(b, rtb, h.level)) { ev.push(EvType.Whiff, a.idx, b.idx, px, py, pz); return Outcome.Whiff; }
   if (armoured(b, rtb, h.level)) {
     b.armourHits++;
@@ -206,7 +242,9 @@ export function applyHit(
 
   // hit
   const ch = counterable && !isAirHit && b.comboHits === 0;
-  const dmg = scaledDamage(h.damage, b.comboHits, ch);
+  const grounded = b.state === FState.Lying;
+  let dmg = scaledDamage(h.damage, b.comboHits, ch);
+  if (grounded) dmg = Math.max(1, ipct(dmg, TUNING.groundHitPct));
   b.hp = Math.max(0, b.hp - dmg);
   b.comboHits++;
   b.comboDamage += dmg;
@@ -216,19 +254,83 @@ export function applyHit(
   const hs = h.hitstop ?? defaultHitstop(reaction);
   a.hitstop = hs; b.hitstop = hs;
   b.lastReaction = reactionStrength(reaction);
+  b.pendingMove = -1;
+
+  if (grounded) {
+    // ground hit: a small bounce, stays down, tech window closed
+    b.lyingFrames = Math.max(0, b.lyingFrames - 10);
+    b.techWindow = 0;
+    b.vy = 0;
+    ev.push(EvType.Hit, a.idx, b.idx, px, py, pz, 0, a.moveIdx, dmg);
+    return Outcome.Hit;
+  }
+
+  const nearWall = wallDistance(b.x, b.z, opts.arena) < 1400;
+  const props = m.properties ?? [];
+
+  // wall splat: standing defender knocked into a nearby wall by a splatting move
+  if (b.state === FState.WallSplat) {
+    b.wallHits++;
+    b.stateFrame = Math.max(0, b.stateTotal - 14);
+    const bounce = b.wallHits >= 2;
+    if (bounce) { b.setState(FState.Air, 0); b.vy = 10; b.vx = Math.trunc((-a.fx * 6) / FX_ONE); b.vz = Math.trunc((-a.fz * 6) / FX_ONE); }
+    ev.push(EvType.Hit, a.idx, b.idx, px, py, pz, 2, a.moveIdx, dmg);
+    return Outcome.Hit;
+  }
+  if (nearWall && !isAirHit && !b.isAirborne() && (props.includes('wallSplat') || reactionStrength(reaction) >= 2 || isKnockdownReaction(reaction))) {
+    b.setState(FState.Hitstun, 6);
+    b.stunFrames = 6;
+    b.lastReaction = 2;
+    const pb = pushVector(a.fx, a.fz, 900);
+    b.pushX = pb[0]; b.pushZ = pb[1]; b.pushFrames = 6;
+    b.wallHits = 0;
+    b.juggleLift = 100;
+    b.wallPending = 1;
+    ev.push(ch ? EvType.Counter : EvType.Hit, a.idx, b.idx, px, py, pz, 2, a.moveIdx, dmg);
+    return ch ? Outcome.Counter : Outcome.Hit;
+  }
+  if (b.isAirborne() && props.includes('wallBounce') && nearWall) {
+    b.setState(FState.Air, 0);
+    b.vy = 26;
+    const push = 30;
+    b.vx = Math.trunc((a.fx * push) / FX_ONE); b.vz = Math.trunc((a.fz * push) / FX_ONE);
+    b.wallHits = 9; // marks: on wall contact, bounce back instead of splat
+    ev.push(EvType.Hit, a.idx, b.idx, px, py, pz, 3, a.moveIdx, dmg);
+    return Outcome.Hit;
+  }
+
+  // bound / screw: one each per combo, only on an airborne defender
+  if (b.isAirborne() && (reaction === 'bound' || props.includes('bound')) && !b.boundUsed) {
+    b.boundUsed = 1;
+    b.setState(FState.Air, 0);
+    b.vy = -60; // slam down; the ground contact in airPhysics bounces them back up
+    b.vx = Math.trunc((a.fx * 8) / FX_ONE); b.vz = Math.trunc((a.fz * 8) / FX_ONE);
+    b.faceDown = 2; // 2 = bound pending
+    ev.push(EvType.Hit, a.idx, b.idx, px, py, pz, 3, a.moveIdx, dmg);
+    return Outcome.Hit;
+  }
+  if (b.isAirborne() && (reaction === 'screw' || props.includes('screw')) && !b.screwUsed) {
+    b.screwUsed = 1;
+    b.setState(FState.Air, 0);
+    b.vy = 22;
+    b.vx = Math.trunc((a.fx * 34) / FX_ONE); b.vz = Math.trunc((a.fz * 34) / FX_ONE);
+    b.faceDown = 3; // 3 = screw: longer floor time, no tech
+    ev.push(EvType.Hit, a.idx, b.idx, px, py, pz, 3, a.moveIdx, dmg);
+    return Outcome.Hit;
+  }
 
   if (isAirHit || isLaunchReaction(reaction) || b.isAirborne()) {
     // juggle: lift decays per hit
-    let lift = h.launchVy ?? (isAirHit ? (h.airLift ?? 20) : 40);
+    let lift = h.launchVy ?? 90;
     if (isAirHit || b.isAirborne()) {
-      lift = Math.max(TUNING.airMinLift, ipct(h.airLift ?? Math.max(16, Math.trunc(lift / 2)), b.juggleLift));
+      lift = Math.max(TUNING.airMinLift, ipct(baseAirLift(h), b.juggleLift));
       b.juggleLift = ipct(b.juggleLift, TUNING.liftDecayPct);
     } else {
       b.juggleLift = 100;
     }
     b.setState(FState.Air, 0);
     b.vy = lift;
-    const push = h.launchVz ?? h.airPush ?? Math.trunc(h.pushback / 4);
+    const push = isAirHit || b.isAirborne() ? (h.airPush ?? Math.trunc(h.pushback / 10)) : (h.launchVz ?? Math.trunc(h.pushback / 10));
     b.vx = Math.trunc((a.fx * push) / FX_ONE);
     b.vz = Math.trunc((a.fz * push) / FX_ONE);
     if (b.y <= 0) b.y = 1;
@@ -240,7 +342,7 @@ export function applyHit(
 
   if (isKnockdownReaction(reaction)) {
     b.setState(FState.Air, 0);
-    b.vy = reaction === 'crumple' ? 6 : 14;
+    b.vy = reaction === 'crumple' ? 10 : 26;
     const push = Math.trunc(h.pushback / 3);
     b.vx = Math.trunc((a.fx * push) / FX_ONE);
     b.vz = Math.trunc((a.fz * push) / FX_ONE);

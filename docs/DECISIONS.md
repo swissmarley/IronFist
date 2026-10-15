@@ -30,3 +30,14 @@
   string timing). Early presses are buffered and come out at `cancelFrame`.
 - **D-012 Blocked attacks push the attacker more than the defender** (60/40), and
   a walled defender doubles the attacker's pushback.
+- **D-013 Throws are moves with a `throw` block and no hitboxes.** They connect by a
+  forward range/side check on `grabFrame`, whiff on crouchers unless flagged, and the
+  victim is locked to the thrower during the animation. Breaks are matched against the
+  pressed-edge button mask (1 / 2 / 1+2) within `breakWindow`.
+- **D-014 Wall splat is geometric.** A heavy/knockdown hit within 1.4 m of a wall sets a
+  pending splat that fires when the pushback reaches the boundary; airborne fighters
+  touching a wall splat directly. Two extra wall hits are allowed before the drop.
+- **D-015 KO slow-motion is implemented in the Session**, which steps the sim every 3rd
+  loop step during the KO phase. Sim frames stay exact so replays are unaffected.
+- **D-016 Launch drift is deliberately small** (4–8 mm/frame) so juggles require a short
+  step/dash to follow, matching the reference feel without the opponent flying away.
