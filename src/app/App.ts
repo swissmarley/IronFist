@@ -112,6 +112,8 @@ export class App {
   }
 
   private chosenStage = 'random';
+  /** When set (e.g. from `?stage=` for tests), every menu-started mode uses only this stage. */
+  pinnedStage: string | null = null;
   /** Whether practice sessions attach the dummy controller (menu practice: yes; ?mode=training: no). */
   private practiceDummy = true;
 
@@ -149,10 +151,10 @@ export class App {
 
   private async startMode(): Promise<void> {
     const s = this.game.settings.get();
-    const stages = STAGE_IDS.filter((id) => id !== 'greybox');
+    const stages = this.pinnedStage ? [this.pinnedStage] : STAGE_IDS.filter((id) => id !== 'greybox');
     const rosterIds = this.roster.map((r) => r.id);
     const seed = (Date.now() % 100000) | 1;
-    const stage = this.chosenStage === 'random' ? (stages[seed % Math.max(1, stages.length)] ?? 'dojo') : this.chosenStage;
+    const stage = this.pinnedStage ?? (this.chosenStage === 'random' ? (stages[seed % Math.max(1, stages.length)] ?? 'dojo') : this.chosenStage);
     this.practiceDummy = true;
     switch (this.pendingChoice) {
       case 'arcade': this.mode = new ArcadeMode({ player: this.picked.p1, roster: rosterIds, stages, difficulty: s.difficulty, rounds: s.rounds, roundTime: s.roundTime, seed }); break;

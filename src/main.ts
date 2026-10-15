@@ -43,7 +43,9 @@ async function boot(): Promise<void> {
         ...(params.get('ringout') ? { arena: { id: 'open', name: 'Open Edge', halfX: 4000, halfZ: 4000, walls: false } } : {}),
       }, cpu);
     } else {
-      await game.loadStage(params.get('stage') ?? 'dojo');
+      const pinned = params.get('stage');
+      if (pinned) app.pinnedStage = pinned;
+      await game.loadStage(pinned ?? 'dojo');
       app.showTitle();
     }
     status.remove();
