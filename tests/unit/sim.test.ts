@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MatchSim } from '@/sim/match';
-import { GREYBOX } from '@/data/characters/greybox';
+import { getCharacter } from '@/data/characters';
+const GREYBOX = getCharacter('greybox');
 import { frameFromNumpad, IN_B1, IN_B2, IN_B3, IN_B4 } from '@/input/InputFrame';
 import { FState } from '@/sim/fighterState';
 import { EvType } from '@/sim/events';
@@ -38,7 +39,7 @@ describe('MatchSim combat core', () => {
     run(s, 20, tapOn(0, 5, IN_B1, P1), () => P2(4));
     expect(s.fighters[1].hp).toBe(170);
     expect(s.fighters[1].state).toBe(FState.Blockstun);
-    const s2 = sim();
+    const s2 = sim({ startDistance: 900 });
     run(s2, 30, tapOn(0, 2, IN_B4, P1), () => P2(4));
     expect(s2.fighters[1].hp).toBe(160);
   });
@@ -50,7 +51,7 @@ describe('MatchSim combat core', () => {
     const evs = run(s2, 30, tapOn(5, 5, IN_B1, P1), () => P2(1));
     expect(evs).not.toContain(EvType.Hit);
     expect(s2.fighters[1].hp).toBe(170);
-    const s3 = sim();
+    const s3 = sim({ startDistance: 900 });
     run(s3, 30, tapOn(5, 6, IN_B2, P1), () => P2(1));
     expect(s3.fighters[1].hp).toBe(170 - 14);
   });

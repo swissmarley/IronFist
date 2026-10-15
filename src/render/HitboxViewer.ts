@@ -72,7 +72,8 @@ export class HitboxViewer {
         const mv = rt.move(f.moveIdx);
         mv.hits.forEach((h: HitDef, hi: number) => {
           const active = f.moveFrame >= h.frames[0] && f.moveFrame <= h.frames[1] && !(f.hitMask & (1 << (h.group ?? hi)));
-          for (const c of h.capsules) this.place(toWorld(c, f.x, f.y, f.z, f.fx, f.fz, this.w), active ? this.matHit : this.matInactive);
+          const tracked = h.track?.find((t) => t.frame === f.moveFrame);
+          for (const c of tracked ? tracked.capsules : h.capsules) this.place(toWorld(c, f.x, f.y, f.z, f.fx, f.fz, this.w), active ? this.matHit : this.matInactive);
         });
       }
       const pr = rt.def.stats.pushRadius;

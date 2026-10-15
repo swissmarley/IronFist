@@ -47,12 +47,16 @@ export function findHit(a: FighterState, b: FighterState, rta: CharacterRuntime,
   if (a.state !== FState.Attack || a.moveIdx < 0) return null;
   const m = rta.move(a.moveIdx);
   const hurts = hurtCapsules(b, rtb);
+  const bPose = currentPose(b, rtb);
   for (let i = 0; i < m.hits.length; i++) {
     const h = m.hits[i] as HitDef;
     const group = h.group ?? i;
     if (a.hitMask & (1 << group)) continue;
     if (a.moveFrame < h.frames[0] || a.moveFrame > h.frames[1]) continue;
-    for (const c of h.capsules) {
+    // highs always whiff on a crouching opponent (genre rule, independent of geometry)
+    if (h.level === 'high' && bPose === 'crouch') continue;
+    const tracked = h.track?.find((t) => t.frame === a.moveFrame);
+    for (const c of tracked ? tracked.capsules : h.capsules) {
       toWorld(c, a.x, a.y, a.z, a.fx, a.fz, wA);
       for (const hc of hurts) {
         toWorld(hc, b.x, b.y, b.z, b.fx, b.fz, wB);
@@ -322,7 +326,8 @@ export function applyHit(
   if (isAirHit || isLaunchReaction(reaction) || b.isAirborne()) {
     // juggle: lift decays per hit
     let lift = h.launchVy ?? 90;
-    if (isAirHit || b.isAirborne()) {
+    const wasAir = isAirHit || b.isAirborne();
+    if (wasAir) {
       lift = Math.max(TUNING.airMinLift, ipct(baseAirLift(h), b.juggleLift));
       b.juggleLift = ipct(b.juggleLift, TUNING.liftDecayPct);
     } else {
@@ -330,7 +335,7 @@ export function applyHit(
     }
     b.setState(FState.Air, 0);
     b.vy = lift;
-    const push = isAirHit || b.isAirborne() ? (h.airPush ?? Math.trunc(h.pushback / 10)) : (h.launchVz ?? Math.trunc(h.pushback / 10));
+    const push = wasAir ? (h.airPush ?? Math.trunc(h.pushback / 10)) : (h.launchVz ?? Math.trunc(h.pushback / 10));
     b.vx = Math.trunc((a.fx * push) / FX_ONE);
     b.vz = Math.trunc((a.fz * push) / FX_ONE);
     if (b.y <= 0) b.y = 1;

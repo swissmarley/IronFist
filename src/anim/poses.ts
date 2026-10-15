@@ -40,7 +40,7 @@ export const STANCE_BREATH: PoseEuler = {
 };
 
 export const CROUCH: PoseEuler = {
-  root: [0, -0.42, 0.02],
+  root: [0, -0.56, 0.02],
   hips: [0, -30, 0],
   spine: [18, 6, 0],
   chest: [10, 8, 0],
@@ -50,12 +50,12 @@ export const CROUCH: PoseEuler = {
   forearmL: [-110, 0, 10],
   upperArmR: [-35, 15, -18],
   forearmR: [-125, 0, -8],
-  upperLegL: [-95, 10, 10],
-  lowerLegL: [122, 0, 0],
-  footL: [-18, 30, 0],
-  upperLegR: [-80, -12, -14],
-  lowerLegR: [120, 0, 0],
-  footR: [-18, 36, 0],
+  upperLegL: [-108, 10, 10],
+  lowerLegL: [132, 0, 0],
+  footL: [-22, 30, 0],
+  upperLegR: [-95, -12, -14],
+  lowerLegR: [130, 0, 0],
+  footR: [-22, 36, 0],
 };
 
 export const GUARD: PoseEuler = {

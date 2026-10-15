@@ -107,6 +107,12 @@ export function makeClip(name: string, length: number, keys: { t: number; pose: 
   return { name, length, keys: ks, loop };
 }
 
+/** Build a clip from already-resolved Pose keys (used by templates that run IK). */
+export function makeClipFromPoses(name: string, length: number, keys: { t: number; pose: Pose; ease?: Ease }[], loop = false): Clip {
+  const ks = keys.map((k) => ({ t: k.t, pose: k.pose, ease: k.ease ?? 'inOut' })).sort((a, b) => a.t - b.t);
+  return { name, length, keys: ks, loop };
+}
+
 /** Evaluate a clip at a fractional frame time into `out`. */
 export function evaluateClip(clip: Clip, time: number, out: Pose): Pose {
   const keys = clip.keys;

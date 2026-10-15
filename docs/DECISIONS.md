@@ -41,3 +41,13 @@
   loop step during the KO phase. Sim frames stay exact so replays are unaffected.
 - **D-016 Launch drift is deliberately small** (4–8 mm/frame) so juggles require a short
   step/dash to follow, matching the reference feel without the opponent flying away.
+- **D-017 Fighters are procedural skinned rigs; animation is pose-keyframe data.** No
+  CC0 fighting mocap is reachable from this environment and the roster needs ~600
+  moves, so attack clips are generated from per-move templates (type, limb, height)
+  timed by the frame data, with a two-bone IK solver aiming fists/feet at explicit
+  targets in metres. Locomotion and reactions are hand-authored key poses.
+- **D-018 Hit capsules are baked from the animation pose** (`tools/bake-hitboxes.ts`
+  → `src/data/baked/<id>.json`, applied in `src/data/characters/index.ts`). Hurtboxes
+  are baked per pose class (head/torso/legs; guard arms deliberately excluded) except
+  the airborne class, which stays one generous capsule so juggles are reliable. Highs
+  always whiff on crouchers by rule, independent of geometry.

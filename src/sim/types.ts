@@ -45,6 +45,11 @@ export interface HitDef {
   /** Horizontal push applied to an airborne defender (mm/frame initial). */
   airPush?: number;
   capsules: CapsuleDef[];
+  /**
+   * Optional per-frame capsules baked from the animation pose (tools/bake-hitboxes.ts).
+   * When present for a frame, these replace `capsules` on that frame.
+   */
+  track?: { frame: number; capsules: CapsuleDef[] }[];
   pushback: number;
   pushbackBlock: number;
   /** Hit-stop frames applied to both fighters (defaults by reaction). */

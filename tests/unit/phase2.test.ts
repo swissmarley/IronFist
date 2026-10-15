@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { MatchSim } from '@/sim/match';
 import { RoundPhase } from '@/sim/rounds';
-import { GREYBOX } from '@/data/characters/greybox';
+import { getCharacter } from '@/data/characters';
+const GREYBOX = getCharacter('greybox');
 import { frameFromNumpad, IN_B1, IN_B2, IN_B3, IN_B4 } from '@/input/InputFrame';
 import { FState } from '@/sim/fighterState';
 import { EvType } from '@/sim/events';
@@ -99,7 +100,7 @@ describe('Phase 2: juggles, walls, ring-out', () => {
     expect([FState.WallSplat, FState.Air, FState.Lying]).toContain(s3.fighters[1].state);
   });
   it('ring-out ends the round on an open stage', () => {
-    const s = new MatchSim([GREYBOX, GREYBOX], { training: false, startDistance: 1000, roundTimeSec: 0, arena: { id: 'open', name: 'Open', halfX: 1000, halfZ: 7000, walls: false } });
+    const s = new MatchSim([GREYBOX, GREYBOX], { training: false, startDistance: 1000, roundTimeSec: 0, arena: { id: 'open', name: 'Open', halfX: 720, halfZ: 7000, walls: false } });
     // skip intro
     for (let i = 0; i < 101; i++) s.step([P1(5), P2(5)]);
     expect(s.round.phase).toBe(RoundPhase.Fight);
@@ -113,7 +114,7 @@ describe('Phase 2: juggles, walls, ring-out', () => {
 
 describe('Phase 2: oki, parry, rounds', () => {
   it('tech roll on landing, kip-up, roll back and floor attacks', () => {
-    const s = sim();
+    const s = sim({ startDistance: 900 });
     // sweep knocks down
     run(s, 60, tapOn(0, 1, IN_B3, P1));
     expect(s.fighters[1].state).toBe(FState.Lying);
@@ -121,14 +122,14 @@ describe('Phase 2: oki, parry, rounds', () => {
     run(s, 2, () => P1(5), () => P2(5, IN_B4));
     expect([FState.Roll, FState.Attack]).toContain(s.fighters[1].state);
     // kip-up after landing without tech
-    const k = sim();
+    const k = sim({ startDistance: 900 });
     run(k, 60, tapOn(0, 1, IN_B3, P1));
     run(k, 5, () => P1(5));
     expect(k.fighters[1].state).toBe(FState.Lying);
     run(k, 1, () => P1(5), () => P2(8));
     expect(k.fighters[1].state).toBe(FState.Getup);
     // floor attack
-    const g = sim();
+    const g = sim({ startDistance: 900 });
     run(g, 60, tapOn(0, 1, IN_B3, P1));
     run(g, 5, () => P1(5));
     run(g, 1, () => P1(5), () => P2(5, IN_B3));
