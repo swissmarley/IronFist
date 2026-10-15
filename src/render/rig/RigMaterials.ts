@@ -36,6 +36,9 @@ export function getNoiseTexture(): THREE.CanvasTexture | null {
   return noiseTex;
 }
 
+/** Linear-space ceiling for costume cloth colour (see D-022). */
+const CLOTH_ALBEDO_CAP = 0.72;
+
 export function makeRigMaterials(groups: PartMaterial[], palette: Palette): THREE.Material[] {
   const noise = getNoiseTexture();
   return groups.map((slot) => {
@@ -48,7 +51,11 @@ export function makeRigMaterials(groups: PartMaterial[], palette: Palette): THRE
       }
       case 'hair': return new THREE.MeshPhysicalMaterial({ color, roughness: 0.42, metalness: 0.05, sheen: 0.6, sheenColor: new THREE.Color(0x443322), clearcoat: 0.3, clearcoatRoughness: 0.35 });
       case 'top': case 'pants': {
-        const m = new THREE.MeshPhysicalMaterial({ color, roughness: 0.92, metalness: 0, sheen: 0.8, sheenRoughness: 0.7, sheenColor: new THREE.Color(0xffffff) });
+        // real cloth never exceeds ~0.85 albedo: cap the brightest palettes so white gis don't clip or bloom
+        const c = new THREE.Color(color);
+        const peak = Math.max(c.r, c.g, c.b);
+        if (peak > CLOTH_ALBEDO_CAP) c.multiplyScalar(CLOTH_ALBEDO_CAP / peak);
+        const m = new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.92, metalness: 0, sheen: 0.45, sheenRoughness: 0.75, sheenColor: new THREE.Color(0xffffff) });
         if (noise) m.roughnessMap = noise;
         return m;
       }
