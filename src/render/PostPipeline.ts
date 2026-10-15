@@ -56,6 +56,8 @@ export class PostPipeline {
       const aoDenoised = denoise(aoPass.getTextureNode(), depth, normal, this.camera);
       color = color.mul(aoDenoised as unknown as Node<'float'>);
     }
+    // exposure is applied before bloom so a stage's grading also scales what blooms
+    color = color.mul(this.uExposure);
     if (q.bloom) {
       const b = bloom(color, this.grading.bloomStrength, 0.3, this.grading.bloomThreshold);
       this.bloomStrength = b.strength;
@@ -65,9 +67,9 @@ export class PostPipeline {
       this.bloomStrength = null;
       this.bloomThreshold = null;
     }
-    const uExposure = this.uExposure, uContrast = this.uContrast, uSaturation = this.uSaturation, uTint = this.uTint, uVignette = this.uVignette, uFlash = this.uFlash;
+    const uContrast = this.uContrast, uSaturation = this.uSaturation, uTint = this.uTint, uVignette = this.uVignette, uFlash = this.uFlash;
     const graded = Fn(() => {
-      let c = color.rgb.mul(uExposure).mul(uTint);
+      let c = color.rgb.mul(uTint);
       const lum = luminance(c);
       c = mix(vec3(lum), c, uSaturation);
       c = c.sub(0.5).mul(uContrast).add(0.5).max(0.0);
