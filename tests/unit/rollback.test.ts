@@ -4,7 +4,7 @@ import { getCharacter, CHARACTERS } from '@/data/characters';
 import { Rng } from '@/core/rng';
 import { RollbackSession, type RollbackStats } from '@/net/RollbackSession';
 import { SimChannel, type ChannelConditions } from '@/net/SimChannel';
-import { decodeMessage, encodeMessage, MSG_HASH, MSG_INPUT, MSG_PING, type NetMessage } from '@/net/protocol';
+import { decodeMessage, encodeMessage, messageEpoch, MSG_HASH, MSG_INPUT, MSG_PING, type NetMessage } from '@/net/protocol';
 import { IN_B1, IN_B2, IN_B3, IN_B4, IN_DOWN, IN_LEFT, IN_RIGHT, IN_UP } from '@/input/InputFrame';
 import type { CharacterDef } from '@/sim/types';
 
@@ -70,9 +70,12 @@ describe('net protocol', () => {
     const msgs: NetMessage[] = [
       { type: MSG_INPUT, seq: 4000000000, ack: 77, frame: 80, adv: -3, start: 70, inputs: [0, 1, 0x3ff, 0xffff] },
       { type: MSG_PING, tick: 123456 },
-      { type: MSG_HASH, frame: 600, hash: 0xdeadbeef },
+      { type: MSG_HASH, frame: 600, hash: 0xdeadbeef, gen: 3 },
     ];
-    for (const m of msgs) expect(decodeMessage(encodeMessage(m))).toEqual(m);
+    for (const m of msgs) expect(decodeMessage(encodeMessage(m, 7))).toEqual(m);
+    // byte 1 carries the match epoch so a rematch can drop the previous match's late packets
+    for (const m of msgs) expect(messageEpoch(encodeMessage(m, 7))).toBe(7);
+    expect(messageEpoch(encodeMessage(msgs[1] as NetMessage))).toBe(0);
     expect(decodeMessage(new Uint8Array([9, 0, 0, 0, 0, 0, 0, 0]))).toBeNull();
     expect(decodeMessage(new Uint8Array([1, 5, 0, 0]))).toBeNull();
     expect(encodeMessage(msgs[0] as NetMessage).byteLength).toBe(20 + 8);

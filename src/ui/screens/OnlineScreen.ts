@@ -13,8 +13,8 @@ function button(label: string, cls: string, onClick: () => void): HTMLButtonElem
 
 /**
  * Online lobby: choose HOST or JOIN, then exchange two codes by copy/paste (manual
- * signalling, no server). Shows connection status, round-trip time and the rollback
- * counter of the last match.
+ * signalling, no server). Shows connection status, the lobby round-trip time with the
+ * input delay it implies, and the rollback counter of the last match.
  */
 export class OnlineScreen extends Screen {
   onHost: (() => void) | null = null;
@@ -31,6 +31,7 @@ export class OnlineScreen extends Screen {
   private readonly submit: HTMLButtonElement;
   private readonly status: HTMLDivElement;
   private readonly stats: HTMLDivElement;
+  private readonly net: HTMLDivElement;
   private role: OnlineRole | null = null;
 
   constructor(root: HTMLElement) {
@@ -60,7 +61,8 @@ export class OnlineScreen extends Screen {
     this.exchange.append(localBox, remoteBox);
     this.status = h('div', 'online-status');
     this.stats = h('div', 'online-stats');
-    this.el.append(this.roles, this.exchange, this.status, this.stats,
+    this.net = h('div', 'online-net');
+    this.el.append(this.roles, this.exchange, this.status, this.net, this.stats,
       button('BACK', 'online-back', () => this.onBack?.()),
       h('div', 'select-help', 'Host sends a code, guest pastes it and sends a reply back · no server needed · 2/4: back'));
     this.setRole(null);
@@ -100,6 +102,11 @@ export class OnlineScreen extends Screen {
 
   setStats(text: string): void {
     this.stats.textContent = text;
+  }
+
+  /** Live lobby link readout: RTT and the input delay the match will use. */
+  setNet(text: string): void {
+    this.net.textContent = text;
   }
 
   private copyLocal(): void {

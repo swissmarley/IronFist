@@ -30,6 +30,9 @@ async function boot(): Promise<void> {
     game.loop.onError = (err, phase) => { errors.push(`${phase}: ${String(err)}`); console.error(phase, err); };
     game.driver = app;
     window.__ironfist = { game, app, ready: false, errors };
+    // online host overrides (the host's start message carries them to the guest)
+    const int = (k: string): number | null => { const v = parseInt(params.get(k) ?? '', 10); return Number.isFinite(v) ? v : null; };
+    app.online.overrides = { rounds: int('rounds'), hp: int('hp'), delay: int('delay') };
     const mode = params.get('mode');
     if (mode === 'training' || mode === 'versus' || mode === 'practice') {
       const stage = params.get('stage') ?? 'dojo';

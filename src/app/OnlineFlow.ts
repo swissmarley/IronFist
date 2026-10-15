@@ -4,8 +4,8 @@ import { createSignaller, type Signaller } from '@/net/signalling';
 import type { RollbackStats } from '@/net/RollbackSession';
 import type { OnlineScreen } from '@/ui/screens/OnlineScreen';
 import { STEP_MS } from '@/core/loop';
+import { clampInputDelay } from '@/net/inputDelay';
 
-export const DEFAULT_INPUT_DELAY = 2;
 
 /** What the online lobby needs from the App (screen changes and match launch). */
 export interface OnlineHooks {
@@ -20,6 +20,15 @@ export interface OnlineHooks {
   launch(setup: OnlineSetup, peer: NetPeer): void;
   /** The connection ended: leave any match/select screen and show the reason. */
   abort(reason: string): void;
+  /** The opponent chose CHANGE FIGHTER: leave the results screen for the character pick. */
+  repick(): void;
+  /** One line on the results screen (the opponent's post-match choice). */
+  note(text: string): void;
+}
+
+/** Host-side seeds come from the wall clock (app layer only; the sim gets the number). */
+function newSeed(): number {
+  return (Date.now() % 1000000) | 1;
 }
 
 /**
@@ -34,6 +43,14 @@ export class OnlineFlow {
   /** `?signal=` value; null = manual copy/paste. */
   signal: string | null = null;
   rtc: WebRtcOptions = {};
+  /**
+   * Host overrides from the query string (`rounds=`, `hp=`, `delay=`); null = settings,
+   * character HP and the automatic input delay from the lobby RTT.
+   */
+  overrides: { rounds: number | null; hp: number | null; delay: number | null } = { rounds: null, hp: null, delay: null };
+  /** Host: stage chosen while the lobby RTT is still being measured. */
+  private pendingStage: string | null = null;
+  private shownSamples = 0;
   private pending: WebRtcTransport | null = null;
   private signaller: Signaller | null = null;
   private role: NetRole | null = null;
@@ -131,9 +148,52 @@ export class OnlineFlow {
   /** Host chose the stage (already resolved from RANDOM). */
   stageChosen(stage: string): void {
     const peer = this.peer;
-    if (!peer || this.role !== 'host' || !peer.localPick || !peer.remotePick) return;
+    if (!peer || this.role !== 'host' || peer.phase !== 'lobby' || !peer.localPick || !peer.remotePick) return;
+    const fixed = this.overrides.delay;
+    if (fixed === null && !peer.rttReady) {
+      // the automatic input delay needs ~1 s of lobby pings; tick() starts once it has them
+      this.pendingStage = stage;
+      this.hooks.show();
+      this.screen.setStatus('MEASURING CONNECTION…', 'busy');
+      return;
+    }
+    this.pendingStage = null;
     const rules = this.hooks.rules();
-    peer.start({ p1: peer.localPick, p2: peer.remotePick, stage, seed: (Date.now() % 1000000) | 1, roundsToWin: rules.roundsToWin, roundTimeSec: rules.roundTimeSec, inputDelay: DEFAULT_INPUT_DELAY });
+    peer.start({
+      p1: peer.localPick, p2: peer.remotePick, stage, seed: newSeed(), roundsToWin: this.overrides.rounds ?? rules.roundsToWin, roundTimeSec: rules.roundTimeSec,
+      inputDelay: fixed === null ? peer.autoInputDelay() : clampInputDelay(fixed), delayAuto: fixed === null, hp: this.overrides.hp ?? 0,
+    });
+  }
+
+  /** Once per loop step: lobby pings, post-match pumping (NetPeer.tick), a deferred start. */
+  tick(): void {
+    const peer = this.peer;
+    if (!peer) return;
+    peer.tick();
+    if (this.pendingStage && peer.rttReady) this.stageChosen(this.pendingStage);
+    if (peer.phase === 'lobby' && peer.rtt.count !== this.shownSamples) { this.shownSamples = peer.rtt.count; this.showDelay(peer); }
+  }
+
+  /** Lobby readout: measured RTT and the input delay this host would pick (or the fixed one). */
+  private showDelay(peer: NetPeer): void {
+    const fixed = this.overrides.delay;
+    const delay = fixed === null ? `${peer.autoInputDelay()} (AUTO)` : `${clampInputDelay(fixed)} (FIXED)`;
+    this.screen.setNet(`RTT ${Math.round(peer.rttTicks * STEP_MS)} ms · INPUT DELAY ${delay}${this.role === 'guest' ? ' · THE HOST DECIDES' : ''}`);
+  }
+
+  /** The local match is over (results screen is up). */
+  matchOver(): void {
+    this.peer?.matchOver();
+  }
+
+  /** Results screen REMATCH. */
+  rematch(): void {
+    this.peer?.requestRematch();
+  }
+
+  /** Results screen CHANGE FIGHTER (the App opens the select). */
+  changeFighter(): void {
+    this.peer?.changeFighter();
   }
 
   /** Close everything (back to menu). */
@@ -146,11 +206,14 @@ export class OnlineFlow {
     this.signaller?.close();
     this.signaller = null;
     this.announced = false;
+    this.pendingStage = null;
+    this.shownSamples = 0;
+    this.screen.setNet('');
   }
 
   /** Show the last match's netcode numbers on the lobby screen. */
   reportStats(s: RollbackStats): void {
-    this.screen.setStats(`LAST MATCH · RTT ${Math.round(s.rttTicks * STEP_MS)} ms · ROLLBACKS ${s.rollbacks} (${s.rolledBackFrames} frames, max ${s.maxRollbackDepth}) · STALLS ${s.windowStalls + s.syncStalls}`);
+    this.screen.setStats(`LAST MATCH · RTT ${Math.round(s.rttTicks * STEP_MS)} ms · ROLLBACKS ${s.rollbacks} (${s.rolledBackFrames} frames, max ${s.maxRollbackDepth}) · STALLS ${s.windowStalls + s.syncStalls}${s.resyncs ? ` · RESYNCS ${s.resyncs}` : ''}`);
   }
 
   private attach(transport: WebRtcTransport, role: NetRole): void {
@@ -163,6 +226,13 @@ export class OnlineFlow {
     };
     peer.onRemotePick = () => { if (peer === this.peer) this.maybeStart(); };
     peer.onStart = (setup) => { if (peer === this.peer) this.hooks.launch(setup, peer); };
+    peer.onRematchReady = () => { if (peer === this.peer) peer.startRematch(newSeed()); };
+    peer.onRemoteChoice = (c) => { if (peer === this.peer) this.hooks.note(c === 'rematch' ? 'OPPONENT WANTS A REMATCH' : 'OPPONENT IS CHANGING FIGHTER'); };
+    peer.onRepick = () => {
+      if (peer !== this.peer) return;
+      this.screen.setStatus('OPPONENT IS CHANGING FIGHTER · PICK AGAIN', 'ok');
+      this.hooks.repick();
+    };
     peer.onLeave = (reason) => {
       if (peer !== this.peer) return;
       this.peer = null;
@@ -182,7 +252,7 @@ export class OnlineFlow {
 
   private maybeStart(): void {
     const peer = this.peer;
-    if (!peer || this.role !== 'host' || !peer.localPick) return;
+    if (!peer || this.role !== 'host' || peer.phase !== 'lobby' || !peer.localPick) return;
     if (!peer.remotePick) { this.hooks.show(); this.screen.setStatus("CONNECTED · WAITING FOR THE OPPONENT'S PICK", 'ok'); return; }
     const stage = this.hooks.rules().stage;
     if (stage) this.stageChosen(stage);

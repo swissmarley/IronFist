@@ -55,7 +55,7 @@ export class App {
   /** Online lobby (`?online=host|join` opens it directly; see OnlineFlow). */
   readonly online: OnlineFlow;
   /** Set between the host's start message and the match launch. */
-  private netLaunch: { peer: NetPeer; inputDelay: number } | null = null;
+  private netLaunch: { peer: NetPeer; setup: OnlineSetup } | null = null;
   private mode: Mode | null = null;
   private runner: MatchRunner | null = null;
   private pendingChoice: MainMenuChoice = 'versus';
@@ -94,6 +94,8 @@ export class App {
       rules: () => { const s = this.game.settings.get(); return { roundsToWin: s.rounds, roundTimeSec: s.roundTime, stage: this.pinnedStage }; },
       launch: (setup, peer) => this.launchOnline(setup, peer),
       abort: (reason) => this.abortOnline(reason),
+      repick: () => { this.endMatch(); this.openSelect(1); },
+      note: (text) => this.results.setNote(text),
     });
     this.screens = { title: this.title, menu: this.main, select: this.select, stage: this.stageSel, loading: this.loading, cutscene: this.cutscene, results: this.results, paused: this.pause, movelist: this.moveList, practiceMenu: this.practiceMenu, replays: this.replays, settings: this.settings, ending: this.cutscene, online: this.onlineScreen };
     this.wire();
@@ -204,7 +206,7 @@ export class App {
     await this.game.loadStage(setup.stage);
     const net = this.netLaunch;
     this.netLaunch = null;
-    this.runner = net ? new NetMatchRunner(this.game, setup, net.peer, net.inputDelay, this.uiRoot) : new MatchRunner(this.game, setup);
+    this.runner = net ? new NetMatchRunner(this.game, setup, net.peer, net.setup, this.uiRoot) : new MatchRunner(this.game, setup);
     if (this.mode?.id === 'practice' && this.practiceDummy) { this.practice = new PracticeController(this.game, this.runner); this.practice.apply(this.practiceMenu.options); }
     this.go('match');
     this.splash.show();
@@ -242,11 +244,20 @@ export class App {
     const winnerName = outcome.winner === 2 ? 'DRAW' : getCharacter(outcome.winner === 0 ? this.runner.setup.p1 : this.runner.setup.p2).name;
     this.results.set({ winner: winnerName, wins: outcome.wins, maxCombo: outcome.maxCombo, damage: outcome.damage, timeSec: outcome.frames / 60 }, after.choices);
     this.go('results');
+    if (this.mode.id === 'online') this.online.matchOver();
   }
 
   private onResultsChoice(c: string): void {
     this.mode?.onChoice?.(c);
     if (c === 'menu') { this.endMatch(); if (this.mode?.id === 'online') this.online.leave(); this.go('menu'); return; }
+    if (this.mode?.id === 'online' && c === 'rematch') {
+      // the host starts the rematch once both asked; until then only LEAVE remains
+      this.online.rematch();
+      this.results.setChoices([{ id: 'menu', label: 'LEAVE' }]);
+      this.results.setNote('WAITING FOR THE OPPONENT…');
+      return;
+    }
+    if (this.mode?.id === 'online' && c === 'select') this.online.changeFighter();
     if (c === 'select') { this.endMatch(); this.openSelect(this.pendingChoice === 'versus' ? 2 : 1); return; }
     void this.playNext();
   }
@@ -328,8 +339,9 @@ export class App {
       config: { seed: s.seed, roundsToWin: s.roundsToWin, roundTimeSec: s.roundTimeSec },
       label: `ONLINE · ${peer.role === 'host' ? 'P1 (HOST)' : 'P2 (GUEST)'}`,
     };
+    if (s.hp > 0) setup.config.hpOverride = s.hp;
     this.mode = new OnlineMode(setup);
-    this.netLaunch = { peer, inputDelay: s.inputDelay };
+    this.netLaunch = { peer, setup: s };
     void this.launch(setup);
   }
 
@@ -354,6 +366,7 @@ export class App {
 
   step(): void {
     this.frameCounter++;
+    this.online.tick();
     if (this.state === 'match' && this.runner) {
       if (this.runner.session.sim.frame === 90) this.splash.hide();
       const inputs = this.game.input.frames;
@@ -365,7 +378,6 @@ export class App {
       if (this.runner.step()) this.finishMatch();
       return;
     }
-    if (this.runner instanceof NetMatchRunner) this.runner.pump(); // results screen: let the peer confirm the last frames
     if (this.state === 'cutscene' || this.state === 'ending') {
       this.cutsceneTimer++;
       if (this.cutsceneTimer > 240) { this.cutsceneTimer = 0; this.cutsceneIdx++; const l = this.cutsceneLines[this.cutsceneIdx]; if (l) this.cutscene.say(l.line, l.speaker); else this.endCutscene(); }

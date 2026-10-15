@@ -1,6 +1,8 @@
 import type { MatchSim, MatchSnapshot } from '@/sim/match';
 import type { InputFrame } from '@/input/InputFrame';
+import { RoundPhase } from '@/sim/rounds';
 import { MAX_BATCH, MSG_HASH, MSG_INPUT, MSG_PING, MSG_PONG, type InputMsg, type NetMessage } from './protocol';
+import type { StateTransfer } from './resync';
 
 export interface RollbackOptions {
   /** Which sim player this peer controls (host = 0, guest = 1). */
@@ -15,6 +17,8 @@ export interface RollbackOptions {
   pingInterval?: number;
   /** Minimum ticks between two time-sync stalls (default 12). */
   syncInterval?: number;
+  /** This peer's state wins a desync: it sends state transfers instead of applying them (the host). */
+  authority?: boolean;
 }
 
 export interface RollbackStats {
@@ -39,6 +43,8 @@ export interface RollbackStats {
   localAdvantage: number;
   remoteAdvantage: number;
   checkpointsCompared: number;
+  /** State transfers sent (authority) or applied (other peer) after a desync. */
+  resyncs: number;
 }
 
 export interface Desync { frame: number; local: number; remote: number }
@@ -60,7 +66,10 @@ const NONE = 0x7fffffff;
  * - Each side estimates its frame advantage; the side that runs ahead skips a tick now
  *   and then so both stay in step.
  * - Every `hashInterval` frames the hash of the confirmed state is exchanged; a mismatch
- *   sets `desync`.
+ *   sets `desync`. The authority (host) then hands `onResync` its last confirmed snapshot
+ *   plus its inputs after it; the other peer gets it via `receiveTransfer`, restores and
+ *   re-simulates to its present (`onDesync` lets it ask the authority to do so). Hashes
+ *   carry a resync generation and frames before the transfer are no longer compared.
  * - `onStepped(frame, resim)` fires after every sim step; `resim` is true for frames whose
  *   events were already presented, so audio/VFX are not played twice.
  */
@@ -72,10 +81,19 @@ export class RollbackSession {
   readonly hashInterval: number;
   readonly stats: RollbackStats = {
     ticks: 0, rollbacks: 0, rolledBackFrames: 0, maxRollbackDepth: 0, mispredictions: 0, windowStalls: 0, syncStalls: 0,
-    packetsSent: 0, packetsReceived: 0, outOfOrder: 0, rttTicks: 0, localAdvantage: 0, remoteAdvantage: 0, checkpointsCompared: 0,
+    packetsSent: 0, packetsReceived: 0, outOfOrder: 0, rttTicks: 0, localAdvantage: 0, remoteAdvantage: 0, checkpointsCompared: 0, resyncs: 0,
   };
   desync: Desync | null = null;
+  /** Resync generation: bumped by every applied state transfer; hashes only compare within one. */
+  syncGen = 0;
+  /** Last applied/sent state transfer frame (-1 = none); checkpoints before it are not compared. */
+  syncFloor = -1;
+  readonly authority: boolean;
   onStepped: ((frame: number, resim: boolean) => void) | null = null;
+  /** Authority: a state transfer to deliver to the peer (reliable channel). */
+  onResync: ((t: StateTransfer) => void) | null = null;
+  /** Non-authority: a desync was detected in resync generation `gen` (ask the authority). */
+  onDesync: ((gen: number) => void) | null = null;
 
   private readonly pingInterval: number;
   private readonly syncInterval: number;
@@ -104,6 +122,9 @@ export class RollbackSession {
   private readonly ckLocal = new Float64Array(CHECKPOINT_RING * 2);
   private readonly ckRemote = new Float64Array(CHECKPOINT_RING * 2);
   private readonly ckCompared = new Float64Array(CHECKPOINT_RING);
+  // desync recovery
+  private resyncWanted = false;
+  private pendingTransfer: StateTransfer | null = null;
 
   constructor(readonly sim: MatchSim, opts: RollbackOptions, private readonly send: (m: NetMessage) => void) {
     this.local = opts.localPlayer;
@@ -113,6 +134,7 @@ export class RollbackSession {
     this.hashInterval = Math.max(1, opts.hashInterval ?? 60);
     this.pingInterval = Math.max(1, opts.pingInterval ?? 30);
     this.syncInterval = Math.max(1, opts.syncInterval ?? 12);
+    this.authority = opts.authority ?? false;
     const start = sim.frame;
     // inputs for the first `inputDelay` frames are neutral on both sides by definition
     this.localKnown = start + this.inputDelay - 1;
@@ -132,6 +154,16 @@ export class RollbackSession {
   /** Last frame whose inputs are final for both players and already simulated with them. */
   get confirmedFrame(): number {
     return Math.min(this.remoteKnown, this.sim.frame - 1, this.rollbackFrom - 1);
+  }
+
+  /**
+   * The match is over and the frame that entered MatchOver is confirmed, so no rollback can
+   * undo it. (The sim keeps stepping MatchOver frames, so waiting for *every* frame to be
+   * confirmed would only succeed by chance while inputs are in flight.)
+   */
+  get matchDecided(): boolean {
+    const r = this.sim.round;
+    return r.phase === RoundPhase.MatchOver && this.confirmedFrame >= this.sim.frame - 1 - r.phaseFrame;
   }
 
   /** Ticks since anything arrived from the peer (disconnect detection). */
@@ -181,7 +213,7 @@ export class RollbackSession {
         break;
       }
       case MSG_HASH: {
-        if (m.frame % this.hashInterval !== 0) break;
+        if (m.gen !== this.syncGen || m.frame % this.hashInterval !== 0) break;
         const i = ((m.frame / this.hashInterval) % CHECKPOINT_RING) * 2;
         this.ckRemote[i] = m.frame; this.ckRemote[i + 1] = m.hash >>> 0;
         this.compare(m.frame);
@@ -219,8 +251,73 @@ export class RollbackSession {
   }
 
   private settle(): void {
+    this.applyTransfer();
     this.applyRollback();
     this.reportCheckpoints();
+    if (this.resyncWanted) this.sendTransfer();
+  }
+
+  /** Authority: the peer reported a desync in generation `gen` (ignored once already resolved). */
+  requestResync(gen: number): void {
+    if (this.authority && (gen & 0xff) === this.syncGen) this.resyncWanted = true;
+  }
+
+  /** Non-authority: queue the authority's state; applied at the start of the next tick/pump. */
+  receiveTransfer(t: StateTransfer): void {
+    if (!this.authority) this.pendingTransfer = t;
+  }
+
+  /** Authority: snapshot the last confirmed frame and hand it out with our inputs after it. */
+  private sendTransfer(): void {
+    const sim = this.sim;
+    const k = this.confirmedFrame + 1; // every input before k is final and simulated (no rollback pending here)
+    const slot = this.snaps[k % this.snaps.length];
+    const snap = k === sim.frame ? sim.snapshot() : slot?.frame === k ? slot : null;
+    if (!snap) return; // cannot happen inside the prediction window; the next mismatch asks again
+    this.resyncWanted = false;
+    const from = Math.max(0, Math.min(k, this.remoteAck + 1)); // everything the peer may still lack
+    const inputs: number[] = [];
+    for (let f = from; f <= this.localKnown; f++) inputs.push(this.localInputs[f % INPUT_RING] as number);
+    this.enterGeneration((this.syncGen + 1) & 0xff, k);
+    this.onResync?.({ gen: this.syncGen, frame: k, data: snap.data.slice(), inputsFrom: from, inputs });
+  }
+
+  /** Non-authority: restore the authority's confirmed state and re-simulate to the present. */
+  private applyTransfer(): void {
+    const t = this.pendingTransfer;
+    this.pendingTransfer = null;
+    const sim = this.sim;
+    const snap = t ? sim.allocSnapshot() : null;
+    if (!t || !snap || t.data.length !== snap.data.length || t.data[0] !== t.frame) return;
+    const k = t.frame;
+    const target = Math.max(sim.frame, k);
+    // the authority's inputs: frames before k no longer matter, the rest continue our run
+    if (this.remoteKnown < k - 1) this.remoteKnown = k - 1;
+    for (let i = 0; i < t.inputs.length; i++) {
+      const f = t.inputsFrom + i;
+      if (f !== this.remoteKnown + 1) continue;
+      if (f - sim.frame >= INPUT_RING - 8) break;
+      this.remoteInputs[f % INPUT_RING] = t.inputs[i] as number;
+      this.remoteKnown = f;
+    }
+    snap.data.set(t.data);
+    snap.frame = k;
+    sim.restore(snap);
+    this.rollbackFrom = NONE;
+    if (this.presented < k - 1) this.presented = k - 1; // skipped frames are never presented
+    while (sim.frame < target) this.advance();
+    this.enterGeneration(t.gen, k);
+    this.nextCheckpoint = k % this.hashInterval === 0 ? k : k - (k % this.hashInterval) + this.hashInterval;
+  }
+
+  /** Both sides of a transfer: new hash generation, forget the old comparisons. */
+  private enterGeneration(gen: number, floor: number): void {
+    this.syncGen = gen;
+    this.syncFloor = floor;
+    this.desync = null;
+    this.ckRemote.fill(-1);
+    this.ckCompared.fill(-1);
+    this.stats.resyncs++;
   }
 
   private flush(): void {
@@ -229,7 +326,7 @@ export class RollbackSession {
       this.emit({ type: MSG_PING, tick: this.stats.ticks });
       // hashes travel on the lossy channel: repeat the latest one so a single loss is harmless
       const last = this.lastCheckpoint;
-      if (last) this.emit({ type: MSG_HASH, frame: last.frame, hash: last.hash });
+      if (last) this.emit({ type: MSG_HASH, frame: last.frame, hash: last.hash, gen: this.syncGen });
     }
   }
 
@@ -306,18 +403,21 @@ export class RollbackSession {
       const hash = this.snapHash[slot] as number;
       const i = ((cp / this.hashInterval) % CHECKPOINT_RING) * 2;
       this.ckLocal[i] = cp; this.ckLocal[i + 1] = hash;
-      this.emit({ type: MSG_HASH, frame: cp, hash });
+      this.emit({ type: MSG_HASH, frame: cp, hash, gen: this.syncGen });
       this.compare(cp);
     }
   }
 
   private compare(frame: number): void {
     const i = ((frame / this.hashInterval) % CHECKPOINT_RING) * 2;
-    if (this.ckLocal[i] !== frame || this.ckRemote[i] !== frame || this.ckCompared[i / 2] === frame) return;
+    if (frame < this.syncFloor || this.ckLocal[i] !== frame || this.ckRemote[i] !== frame || this.ckCompared[i / 2] === frame) return;
     this.ckCompared[i / 2] = frame;
     this.stats.checkpointsCompared++;
     const local = this.ckLocal[i + 1] as number, remote = this.ckRemote[i + 1] as number;
-    if (local !== remote && !this.desync) this.desync = { frame, local, remote };
+    if (local === remote || this.desync) return;
+    this.desync = { frame, local, remote };
+    if (this.authority) this.resyncWanted = true;
+    else this.onDesync?.(this.syncGen);
   }
 
   /** Frame advantage: how far this peer runs ahead of its estimate of the remote's frame. */

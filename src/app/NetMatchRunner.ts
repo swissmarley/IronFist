@@ -1,10 +1,9 @@
 import type { Game } from './Game';
 import { MatchRunner } from './MatchRunner';
 import type { MatchSetup } from './modes/types';
-import type { NetPeer } from '@/net/NetPeer';
+import type { NetPeer, OnlineSetup } from '@/net/NetPeer';
 import type { RollbackSession } from '@/net/RollbackSession';
 import { HASH_INTERVAL, type Replay } from '@/sim/replay';
-import { RoundPhase } from '@/sim/rounds';
 import type { InputFrame } from '@/input/InputFrame';
 import { NetHud } from '@/ui/NetHud';
 import { STEP_MS } from '@/core/loop';
@@ -29,12 +28,12 @@ export class NetMatchRunner extends MatchRunner {
   private nextHashFrame = HASH_INTERVAL;
   private readonly io: [InputFrame, InputFrame] = [0, 0];
 
-  constructor(game: Game, setup: MatchSetup, private readonly peer: NetPeer, inputDelay: number, uiRoot: HTMLElement) {
+  constructor(game: Game, setup: MatchSetup, private readonly peer: NetPeer, private readonly online: OnlineSetup, uiRoot: HTMLElement) {
     super(game, setup);
     const sim = this.session.sim;
     // per-player accessibility assists would make the peers simulate different rules
     sim.options.holdToBlock = [false, false];
-    this.rb = peer.beginMatch(sim, inputDelay);
+    this.rb = peer.beginMatch(sim, online);
     this.rb.onStepped = (frame, resim) => {
       if (resim) return;
       this.session.presentStep(this.rb.usedInputsAt(frame, this.io));
@@ -54,15 +53,7 @@ export class NetMatchRunner extends MatchRunner {
     this.collect();
     if (rb.stats.ticks % 10 === 0) this.updateHud();
     if (rb.ticksSinceReceive > TIMEOUT_TICKS && !this.abort) this.abort = 'CONNECTION LOST';
-    const sim = this.session.sim;
-    // the match is over only once the deciding frames are confirmed (no rollback can undo it)
-    return sim.round.phase === RoundPhase.MatchOver && rb.confirmedFrame >= sim.frame - 1;
-  }
-
-  /** Keep the connection serviced while not simulating (results screen). */
-  pump(): void {
-    this.rb.pump();
-    this.collect();
+    return rb.matchDecided;
   }
 
   override replay(): Replay {
@@ -102,8 +93,9 @@ export class NetMatchRunner extends MatchRunner {
   private updateHud(): void {
     const s = this.rb.stats;
     this.hud.update({
-      rttMs: s.rttTicks * STEP_MS, delay: this.rb.inputDelay, frame: this.rb.frame, confirmed: this.rb.confirmedFrame,
+      rttMs: s.rttTicks * STEP_MS, delay: this.rb.inputDelay, delayAuto: this.online.delayAuto, frame: this.rb.frame, confirmed: this.rb.confirmedFrame,
       rollbacks: s.rollbacks, maxDepth: s.maxRollbackDepth, stalls: s.windowStalls + s.syncStalls, desyncFrame: this.rb.desync?.frame ?? -1,
+      resyncs: s.resyncs, resyncFrame: this.rb.syncFloor,
     });
   }
 }
