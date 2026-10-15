@@ -24,6 +24,7 @@ import { loadRecords, saveRecords, type Records } from './settings';
 import { PracticeController } from './PracticeController';
 import { IN_START } from '@/input/InputFrame';
 import { notationToFrames } from '@/ai/BasicAI';
+import { SelectScene } from '@/render/SelectScene';
 
 type State = 'title' | 'menu' | 'select' | 'stage' | 'loading' | 'cutscene' | 'match' | 'paused' | 'movelist' | 'practiceMenu' | 'results' | 'replays' | 'settings' | 'ending';
 
@@ -57,6 +58,7 @@ export class App {
   private afterCutscene: (() => void) | null = null;
   private frameCounter = 0;
   readonly roster = Object.values(CHARACTERS).filter((c) => c.id !== 'greybox');
+  private readonly selectScene: SelectScene;
 
   constructor(private readonly game: Game, uiRoot: HTMLElement) {
     if (this.roster.length === 0) this.roster.push(getCharacter('greybox'));
@@ -73,6 +75,7 @@ export class App {
     this.practiceMenu = new PracticeMenu(uiRoot);
     this.replays = new ReplayList(uiRoot);
     this.settings = new SettingsScreen(uiRoot, game.settings);
+    this.selectScene = new SelectScene(game.scene);
     this.screens = { title: this.title, menu: this.main, select: this.select, stage: this.stageSel, loading: this.loading, cutscene: this.cutscene, results: this.results, paused: this.pause, movelist: this.moveList, practiceMenu: this.practiceMenu, replays: this.replays, settings: this.settings, ending: this.cutscene };
     this.wire();
     void loadRecords().then((r) => { this.records = r; });
@@ -85,6 +88,7 @@ export class App {
     this.main.onChoose = (c) => this.chooseMode(c);
     this.select.onSound = ui;
     this.select.onBack = () => this.go('menu');
+    this.select.onChange = (p, id) => this.selectScene.setFighter(p, getCharacter(id));
     this.select.onDone = (r) => { this.picked = r; if (this.pendingChoice === 'versus') this.go('stage'); else void this.startMode(); };
     this.stageSel.list.onSound = ui;
     this.stageSel.onBack = () => this.go('select');
@@ -113,6 +117,7 @@ export class App {
 
   private go(state: State): void {
     for (const s of Object.values(this.screens)) s.hide();
+    if (this.state === 'select' && state !== 'select') this.selectScene.exit();
     this.state = state;
     const screen = this.screens[state];
     if (screen) screen.show();
@@ -127,8 +132,19 @@ export class App {
     switch (c) {
       case 'settings': this.go('settings'); break;
       case 'replays': this.go('replays'); break;
-      default: this.select.start(c === 'versus' ? 2 : 1); this.state = 'select';
+      default: this.openSelect(c === 'versus' ? 2 : 1);
     }
+  }
+
+  private openSelect(players: number): void {
+    for (const s of Object.values(this.screens)) s.hide();
+    this.select.start(players);
+    this.state = 'select';
+    this.selectScene.enter(players);
+    this.selectScene.setFighter(0, getCharacter(this.select.current(0)));
+    this.selectScene.setFighter(1, getCharacter(this.select.current(1)));
+    const f = this.game.input.frames;
+    this.menu.prime([f[0] ?? 0, f[1] ?? 0]);
   }
 
   private async startMode(): Promise<void> {
@@ -202,7 +218,7 @@ export class App {
   private onResultsChoice(c: string): void {
     this.mode?.onChoice?.(c);
     if (c === 'menu') { this.endMatch(); this.go('menu'); return; }
-    if (c === 'select') { this.endMatch(); this.select.start(this.pendingChoice === 'versus' ? 2 : 1); this.state = 'select'; return; }
+    if (c === 'select') { this.endMatch(); this.openSelect(this.pendingChoice === 'versus' ? 2 : 1); return; }
     void this.playNext();
   }
 
@@ -320,6 +336,7 @@ export class App {
   }
 
   render(alpha: number, dtMs: number): void {
+    this.selectScene.update(dtMs);
     if (this.runner) this.runner.session.render(alpha, dtMs, this.game.renderer);
     else this.game.renderScene();
     const screen = this.screens[this.state];

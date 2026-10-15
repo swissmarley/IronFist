@@ -27,6 +27,7 @@ async function boot(): Promise<void> {
   try {
     await game.init();
     const app = new App(game, uiRoot);
+    game.loop.onError = (err, phase) => { errors.push(`${phase}: ${String(err)}`); console.error(phase, err); };
     game.driver = app;
     window.__ironfist = { game, app, ready: false, errors };
     const mode = params.get('mode');

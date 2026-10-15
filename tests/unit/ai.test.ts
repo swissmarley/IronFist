@@ -47,3 +47,16 @@ describe('BasicAI', () => {
     expect(DIFFICULTIES).toHaveLength(5);
   });
 });
+
+describe('BasicAI across the roster', () => {
+  it('drives every character against every other without throwing', async () => {
+    const { CHARACTERS } = await import('@/data/characters');
+    const ids = Object.keys(CHARACTERS);
+    for (const a of ids) for (const b of ids) {
+      const sim = new MatchSim([CHARACTERS[a]!, CHARACTERS[b]!], { roundsToWin: 1, roundTimeSec: 20, seed: 5 });
+      const x = new BasicAI(sim, 0, 3, 1), y = new BasicAI(sim, 1, 3, 2);
+      for (let i = 0; i < 400; i++) sim.step([x.decide(sim), y.decide(sim)]);
+      expect(sim.frame).toBe(400);
+    }
+  });
+});

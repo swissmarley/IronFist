@@ -44,8 +44,13 @@
 - [ ] Known issues: floor shadows faint under IBL; white costume halos at high sun; no spring-bone hair/cloth yet; facial blendshapes not started
 
 ## Phase 4 — Content scale-up
-- [ ] 7 more fighters, 6 stages
-- [ ] Menus, character select, modes, arcade story-lite
+- [x] 8 original fighters (60–100 moves each, stances, chain throws, ten-hit strings), roster validator, baked capsules, per-character looks
+- [ ] 6 stages (Dojo done; Harbour, Neon, Desert, Forest, Colosseum in progress)
+- [x] Title, main menu, character select with 3D turntable, stage select, versus splash, loading tips, results, pause, move list
+- [x] Settings (video/audio/controls remap/accessibility/rules) persisted in IndexedDB; records
+- [x] Modes: arcade (8-fight ladder, sub-boss/boss intros, endings), versus, practice (dummy modes, record/playback, move demo), survival, time attack, replay theatre
+- [x] First CPU opponent (BasicAI) with 5 difficulty levels
+- [ ] Per-character stance idle poses; intro/win poses per character (polish)
 
 ## Phase 5 — AI and balance
 - [ ] Layered AI, difficulties, headless balance reports

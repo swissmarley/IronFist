@@ -181,6 +181,7 @@ export class Session {
 
   dispose(): void {
     this.vfx.dispose();
+    for (const v of this.views) { v.group.remove(v.rig.group); v.rig.dispose(); }
     this.scene.scene.remove(this.hitboxes.group);
     this.hud.el.remove();
   }

@@ -33,6 +33,8 @@ export interface LoopStats {
 }
 
 export class FixedStepLoop {
+  /** Called when a step or render throws; the loop keeps running. */
+  onError: ((err: unknown, phase: 'input' | 'step' | 'render') => void) | null = null;
   private accumulator = 0;
   private lastTime = -1;
   private rafId = 0;
@@ -74,6 +76,10 @@ export class FixedStepLoop {
     return this.paused;
   }
 
+  private report(err: unknown, phase: 'input' | 'step' | 'render'): void {
+    if (this.onError) this.onError(err, phase); else console.error(`loop ${phase} error`, err);
+  }
+
   /** Step exactly once while paused (frame advance). */
   stepOnce(): void {
     this.cb.sampleInput();
@@ -94,8 +100,8 @@ export class FixedStepLoop {
     if (!this.paused) {
       this.accumulator += dt;
       while (this.accumulator >= STEP_MS && steps < MAX_STEPS_PER_FRAME) {
-        this.cb.sampleInput();
-        this.cb.step();
+        try { this.cb.sampleInput(); } catch (err) { this.report(err, 'input'); }
+        try { this.cb.step(); } catch (err) { this.report(err, 'step'); }
         this.accumulator -= STEP_MS;
         steps++;
       }
@@ -109,7 +115,7 @@ export class FixedStepLoop {
     this.stats.stepsLastFrame = steps;
 
     const alpha = this.paused ? 0 : this.accumulator / STEP_MS;
-    this.cb.render(alpha, dt);
+    try { this.cb.render(alpha, dt); } catch (err) { this.report(err, 'render'); }
     this.stats.renderMs = this.now() - t1;
 
     this.fpsAccum += dt;
