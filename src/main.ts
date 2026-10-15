@@ -17,7 +17,7 @@ async function boot(): Promise<void> {
   window.addEventListener('error', (e) => errors.push(String(e.message)));
   window.addEventListener('unhandledrejection', (e) => errors.push(String(e.reason)));
 
-  const game = new Game({ canvas, uiRoot, debugRoot, forceWebGL: params.get('gl') === 'webgl' });
+  const game = new Game({ canvas, uiRoot, debugRoot, forceWebGL: params.get('gl') === 'webgl', mode: params.get('mode') ?? 'training', ...(params.get('quality') ? { quality: params.get('quality') as string } : {}) });
   window.__ironfist = { game, ready: false, errors };
   try {
     await game.init();

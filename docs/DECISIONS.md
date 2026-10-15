@@ -16,3 +16,17 @@
 - **D-007 Command interpreter is a trie over a per-fighter ring of InputFrames**,
   evaluated every frame; motions have per-step max gaps and a trailing button
   buffer window. Just-frames are an explicit window on the last token.
+- **D-008 Hit/hurt capsules are authored per move as local-space capsule tracks**
+  (baked from the animation pose at authoring time with the /tools/animation page
+  in Phase 3). The sim never evaluates a skeleton, which keeps it deterministic and
+  cheap; the F1 viewer shows exactly what the sim tests.
+- **D-009 Simultaneous presses must land on the same sampled frame.** Macro keys
+  (1+2, 3+4, 1+3, 2+4) are bound by default on keyboard and shoulder buttons on pads.
+- **D-010 Move frame 0 is the press frame;** a hit with `frames: [10, 10]` connects 10
+  steps after the input (i10). Frame advantage is derived at contact:
+  stun = remaining recovery + onBlock/onHit, so the data is the single source of truth
+  and the validator rejects advantages the recovery cannot express.
+- **D-011 String follow-ups start after the previous hit's active window** (fixed
+  string timing). Early presses are buffered and come out at `cancelFrame`.
+- **D-012 Blocked attacks push the attacker more than the defender** (60/40), and
+  a walled defender doubles the attacker's pushback.

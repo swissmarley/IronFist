@@ -12,15 +12,15 @@
 - [x] Unit tests + Playwright smoke test with screenshot
 
 ## Phase 1 — Combat core
-- [ ] InputFrame, device sources, mapper, remapping
-- [ ] Input ring + command interpreter (trie, buffers, just-frame)
-- [ ] Fighter state machine: idle/walk/dash/backdash/sidestep/crouch/jump
-- [ ] Auto-facing, pushboxes, arena bounds
-- [ ] Move data schema + validation + frame-data test
-- [ ] Hit/hurt capsule pipeline from pose
-- [ ] Hit levels, block, crouch, hit-stun/block-stun, pushback
-- [ ] Hitbox viewer (F1) and frame data overlay (F2)
-- [ ] 2P grey-box playable in training room
+- [x] InputFrame, keyboard + gamepad sources, bindings (remap UI in Phase 4)
+- [x] Input history ring + command interpreter (per-token gaps, buffers, just-frame)
+- [x] Fighter state machine: idle/walk/dash/run/backdash/sidestep/sidewalk/crouch/crouch-dash/jump
+- [x] Auto-facing, pushboxes, arena bounds
+- [x] Move data schema + validator + frame-data test
+- [x] Hit/hurt capsule pipeline from pose (local-space capsule tracks)
+- [x] Hit levels, stand/crouch block, hit-stun/block-stun, pushback, hit-stop, counter hit, crush, power-crush armour
+- [x] Hitbox viewer (F1), frame data overlay (F2), input display (F4)
+- [x] 2P grey-box playable in training room (keyboard + scripted-input E2E)
 
 ## Phase 2 — Full move system
 - [ ] Juggles, gravity, scaling, bound/screw

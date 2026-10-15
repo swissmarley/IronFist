@@ -2,6 +2,11 @@
 export class Hasher {
   private h = 0x811c9dc5;
 
+  reset(): this {
+    this.h = 0x811c9dc5;
+    return this;
+  }
+
   int(v: number): this {
     // hash 4 bytes of the int32 representation
     let x = v | 0;
