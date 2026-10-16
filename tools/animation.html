@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>IRON FIST — Animation Tool</title>
+    <style>
+      html, body { margin: 0; background: #1a1d22; color: #ddd; font: 13px/1.4 system-ui, sans-serif; }
+      #sheet { display: grid; grid-template-columns: repeat(var(--cols, 6), 1fr); gap: 4px; padding: 4px; }
+      .cell { position: relative; background: #0f1114; }
+      .cell canvas { display: block; width: 100%; height: auto; }
+      .cell span { position: absolute; left: 4px; top: 2px; font: 11px monospace; color: #9fb; text-shadow: 0 1px 2px #000; }
+      #controls { padding: 6px 8px; display: flex; gap: 8px; align-items: center; background: #111; position: sticky; top: 0; }
+      #controls input, #controls select { background: #222; color: #eee; border: 1px solid #444; padding: 2px 4px; }
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+      <label>clip <select id="clip"></select></label>
+      <label>frames <input id="frames" value="0,4,8,12,16,20,24,30" size="24" /></label>
+      <label>view <select id="view"><option value="side">side</option><option value="front">front</option><option value="3q">3/4</option></select></label>
+      <button id="render">render</button>
+      <span id="status"></span>
+    </div>
+    <div id="sheet"></div>
+    <script type="module" src="/tools/animation.ts"></script>
+  </body>
+</html>

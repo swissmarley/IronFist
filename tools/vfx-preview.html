@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IRON FIST VFX preview</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23111'/%3E%3Ccircle cx='16' cy='16' r='8' fill='%23ff7a1a'/%3E%3C/svg%3E" />
+    <style>
+      html, body { margin: 0; height: 100%; background: #0e1116; overflow: hidden; font: 12px/1.4 ui-monospace, monospace; color: #cfd8ff; }
+      #vfx-canvas { display: block; width: 100vw; height: 100vh; }
+      #vfx-hud { position: fixed; left: 8px; top: 8px; pointer-events: none; white-space: pre; text-shadow: 0 1px 2px #000; }
+      #vfx-keys { position: fixed; left: 8px; bottom: 8px; opacity: 0.7; white-space: pre; text-shadow: 0 1px 2px #000; }
+    </style>
+  </head>
+  <body>
+    <canvas id="vfx-canvas"></canvas>
+    <div id="vfx-hud">BOOTING</div>
+    <div id="vfx-keys">1 hit  2 heavy  3 counter  4 block  5 wall  6 launch  7 land  8 dash  9 KO  0 all   space pause   R reduced flash   Q cycle quality</div>
+    <script type="module" src="./vfx-preview.ts"></script>
+  </body>
+</html>
