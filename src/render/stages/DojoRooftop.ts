@@ -165,7 +165,7 @@ export async function createDojoRooftop(ctx: StageContext): Promise<Stage> {
   disposables.push(boxGeo, ...cityMats);
 
   // --- painted skyline backdrop (far cylinder, unlit, above the box skyline) --
-  const backdropTex = await new THREE.TextureLoader().loadAsync('/stages/dojo/skyline.jpg').catch(() => null);
+  const backdropTex = await new THREE.TextureLoader().loadAsync(`${import.meta.env.BASE_URL}stages/dojo/skyline.jpg`).catch(() => null);
   if (backdropTex) {
     backdropTex.colorSpace = THREE.SRGBColorSpace;
     backdropTex.wrapS = THREE.RepeatWrapping;

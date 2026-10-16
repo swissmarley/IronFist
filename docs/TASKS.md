@@ -76,3 +76,6 @@
 - [x] Tests: snapshot/restore determinism, two peers over a seeded lossy/jittery channel (2000 frames, 3 profiles), loopback lobby path, `e2e/online.spec.ts` (two tabs over real WebRTC)
 - [x] Online polish (D-028): rematch / change fighter without reconnecting (per-match packet epoch), automatic input delay from the lobby RTT (`?delay=` override), desync recovery by host state transfer (RESYNCED in the net HUD); fixed the online match-end check (deciding frame confirmed); tests in `tests/unit/{netpeer,resync}.test.ts` + `e2e/online.spec.ts` (rematch, auto delay, forced desync)
 - [ ] Online: spectators, a signalling server implementation
+
+## Deployment
+- [x] GitHub Pages workflow (`.github/workflows/pages.yml`): tests, build under `/<repo>/`, deploy on every push to `main` (D-029)
