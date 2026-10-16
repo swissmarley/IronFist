@@ -1,7 +1,11 @@
 import { defineConfig } from 'vite';
 import { fileURLToPath, URL } from 'node:url';
 
+// GitHub Pages serves a project site from /<repo>/; the Pages workflow sets BASE_PATH (D-029).
+const base = process.env.BASE_PATH ?? '/';
+
 export default defineConfig({
+  base,
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   build: {
     target: 'es2022',

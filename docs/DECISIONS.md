@@ -215,3 +215,11 @@
   the "right" state survives. The NetHud shows RESYNCED for ~2 s. Replays of a resynced match
   record the confirmed inputs but cannot reproduce the state jump. Protocol version 2.
   Spectators and a signalling server remain open.
+- **D-029 The game deploys to GitHub Pages from `main` with a build-time base path.** Pages
+  serves a project site from `/<repo>/`, so `vite.config.ts` reads `BASE_PATH` (default `/`
+  for dev, tests and CI) and `.github/workflows/pages.yml` sets it to
+  `/${{ github.event.repository.name }}/`, runs the unit tests, builds and publishes `dist/`
+  with the official Pages actions. Runtime asset URLs go through `import.meta.env.BASE_URL`
+  (the Dojo skyline was the one absolute `/stages/...` path). Verified by serving the Pages
+  build from a plain static server under `/IronFist/`: title and match boot with no failed
+  requests. The repository's Pages source must be set to "GitHub Actions" once in Settings.
